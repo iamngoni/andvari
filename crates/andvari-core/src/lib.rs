@@ -2,5 +2,7 @@
 
 pub mod crypto;
 pub mod error;
+pub mod seal;
 
 pub use error::{Error, Result};
+pub use seal::VaultState;

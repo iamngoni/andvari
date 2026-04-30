@@ -38,3 +38,6 @@ askama = { workspace = true }
 
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+base64 = { workspace = true }

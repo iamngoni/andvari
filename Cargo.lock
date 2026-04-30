@@ -321,6 +321,7 @@ dependencies = [
  "andvari-core",
  "anyhow",
  "askama",
+ "base64 0.22.1",
  "figment",
  "serde",
  "serde_json",
