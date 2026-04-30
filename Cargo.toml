@@ -51,6 +51,7 @@ sqlx = { version = "0.8", default-features = false, features = [
     "json",
     "macros",
     "migrate",
+    "ipnetwork",
 ] }
 
 # serialization

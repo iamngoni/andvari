@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod audit;
 mod db;
 mod kms;
 mod middleware;

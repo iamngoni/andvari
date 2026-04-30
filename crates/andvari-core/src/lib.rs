@@ -1,5 +1,6 @@
 //! Core types, errors, and crypto primitives shared across Andvari crates.
 
+pub mod audit;
 pub mod crypto;
 pub mod error;
 pub mod seal;
