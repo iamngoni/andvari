@@ -5,7 +5,10 @@ use std::sync::Arc;
 use andvari_core::VaultState;
 use andvari_core::crypto::{CryptoError, RootKey};
 use andvari_core::seal::UnsealProgress;
+use andvari_core::seal::kms::{KmsBackend, KmsError};
 use tokio::sync::RwLock;
+
+use crate::kms::VaultTransit;
 
 pub type SharedVaultState = Arc<RwLock<VaultState>>;
 pub type SharedUnseal = Arc<RwLock<Option<UnsealProgress>>>;
@@ -84,6 +87,70 @@ pub async fn init_shamir_progress(
     }
     *state.unseal.write().await = Some(UnsealProgress::new(threshold));
     Ok(())
+}
+
+/// Configuration for KMS-backed unseal, parsed once at startup from env.
+#[derive(Debug, Clone)]
+pub struct KmsUnsealConfig {
+    pub provider: String,
+    pub vault_addr: Option<String>,
+    pub vault_token: Option<String>,
+    pub vault_key: Option<String>,
+    /// Either the wrapped RK bytes inline, or a path to read them from.
+    pub wrapped_rk_path: Option<String>,
+}
+
+impl KmsUnsealConfig {
+    /// Read `ANDVARI_KMS_*` from the environment. Returns `None` if no
+    /// provider is configured.
+    pub fn from_env() -> Option<Self> {
+        let provider = std::env::var("ANDVARI_KMS_PROVIDER").ok()?;
+        Some(Self {
+            provider,
+            vault_addr: std::env::var("ANDVARI_KMS_VAULT_ADDR").ok(),
+            vault_token: std::env::var("ANDVARI_KMS_VAULT_TOKEN").ok(),
+            vault_key: std::env::var("ANDVARI_KMS_VAULT_KEY").ok(),
+            wrapped_rk_path: std::env::var("ANDVARI_KMS_WRAPPED_RK_PATH").ok(),
+        })
+    }
+}
+
+/// Attempt to unseal the vault from a KMS-managed wrapped Root Key.
+pub async fn unseal_from_kms(
+    vault: &SharedVaultState,
+    cfg: &KmsUnsealConfig,
+) -> Result<bool, KmsError> {
+    let backend: Box<dyn KmsBackend> = match cfg.provider.as_str() {
+        "vault-transit" => {
+            let addr = cfg.vault_addr.as_deref().ok_or_else(|| {
+                KmsError::Transport("ANDVARI_KMS_VAULT_ADDR is required for vault-transit".into())
+            })?;
+            let token = cfg.vault_token.as_deref().ok_or_else(|| {
+                KmsError::Transport("ANDVARI_KMS_VAULT_TOKEN is required for vault-transit".into())
+            })?;
+            let key = cfg.vault_key.as_deref().ok_or_else(|| {
+                KmsError::Transport("ANDVARI_KMS_VAULT_KEY is required for vault-transit".into())
+            })?;
+            Box::new(VaultTransit::new(addr, token, key)?)
+        }
+        other => {
+            return Err(KmsError::Transport(format!(
+                "unknown ANDVARI_KMS_PROVIDER: {other}"
+            )));
+        }
+    };
+
+    let path = cfg
+        .wrapped_rk_path
+        .as_deref()
+        .ok_or_else(|| KmsError::Transport("ANDVARI_KMS_WRAPPED_RK_PATH is required".into()))?;
+    let wrapped = std::fs::read(path)
+        .map_err(|e| KmsError::Transport(format!("read wrapped RK from {path}: {e}")))?;
+
+    let rk = backend.unwrap(&wrapped).await?;
+    let mut guard = vault.write().await;
+    *guard = VaultState::unsealed(rk);
+    Ok(true)
 }
 
 #[cfg(test)]

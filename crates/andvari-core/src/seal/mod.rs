@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::crypto::RootKey;
 
+pub mod kms;
 pub mod shamir;
 
 mod progress;

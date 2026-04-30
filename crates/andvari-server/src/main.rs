@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod kms;
 mod middleware;
 mod state;
 mod sys;
@@ -28,6 +29,15 @@ async fn main() -> std::io::Result<()> {
         Ok(true) => info!("env-var unseal succeeded; vault is unsealed"),
         Ok(false) => info!("ANDVARI_ROOT_KEY not set; vault remains sealed"),
         Err(e) => warn!(error = %e, "env-var unseal failed; vault remains sealed"),
+    }
+
+    if app_state.vault.read().await.is_sealed() {
+        if let Some(kms_cfg) = state::KmsUnsealConfig::from_env() {
+            match state::unseal_from_kms(&app_state.vault, &kms_cfg).await {
+                Ok(_) => info!(provider = %kms_cfg.provider, "kms unseal succeeded"),
+                Err(e) => warn!(error = %e, "kms unseal failed; vault remains sealed"),
+            }
+        }
     }
 
     let threshold = match state::shamir_threshold_from_env() {
