@@ -43,9 +43,8 @@ pub fn split_root_key(
     limit: usize,
 ) -> Result<Vec<Vec<u8>>, CryptoError> {
     validate_params(threshold, limit)?;
-    Gf256::split_array(threshold, limit, rk.as_bytes(), OsRng).map_err(|_| {
-        CryptoError::InvalidEnvelope("vsss-rs split rejected the parameters")
-    })
+    Gf256::split_array(threshold, limit, rk.as_bytes(), OsRng)
+        .map_err(|_| CryptoError::InvalidEnvelope("vsss-rs split rejected the parameters"))
 }
 
 /// Same as [`split_root_key`] but renders each share as base64.
@@ -112,9 +111,7 @@ fn validate_params(threshold: usize, limit: usize) -> Result<(), CryptoError> {
         ));
     }
     if limit > MAX_LIMIT {
-        return Err(CryptoError::InvalidEnvelope(
-            "shamir limit must be <= 255",
-        ));
+        return Err(CryptoError::InvalidEnvelope("shamir limit must be <= 255"));
     }
     Ok(())
 }

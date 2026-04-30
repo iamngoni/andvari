@@ -84,6 +84,10 @@ base64 = "0.22"
 url = "2"
 async-trait = "0.1"
 
+# oidc
+openidconnect = { version = "3", default-features = false, features = ["reqwest", "rustls-tls"] }
+jsonwebtoken = "9"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

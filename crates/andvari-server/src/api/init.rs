@@ -28,10 +28,7 @@ pub struct InitResponse {
 }
 
 #[post("/v1/init")]
-pub async fn init(
-    state: web::Data<AppState>,
-    body: web::Json<InitRequest>,
-) -> impl Responder {
+pub async fn init(state: web::Data<AppState>, body: web::Json<InitRequest>) -> impl Responder {
     let Some(pool) = state.db.as_ref() else {
         return HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": "database unavailable",
@@ -50,9 +47,8 @@ pub async fn init(
         }
     };
     if count > 0 {
-        return HttpResponse::Conflict().json(error_json(
-            "vault already initialized; /v1/init is closed",
-        ));
+        return HttpResponse::Conflict()
+            .json(error_json("vault already initialized; /v1/init is closed"));
     }
 
     // Need an unsealed Root Key to wrap the new workspace KEK.
@@ -106,7 +102,9 @@ pub async fn init(
         envs: vec!["*".into()],
         ops: vec![Op::Read, Op::Write, Op::Lease],
     };
-    let created = match token::create(pool, workspace_id, &body.slug, "bootstrap", &scopes, None).await {
+    let created = match token::create(pool, workspace_id, &body.slug, "bootstrap", &scopes, None)
+        .await
+    {
         Ok(t) => t,
         Err(e) => {
             warn!(error = %e, "init: token creation failed");

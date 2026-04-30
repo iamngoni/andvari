@@ -36,8 +36,8 @@ impl RootKey {
     /// The standard base64 alphabet is used. The decoded payload must be
     /// exactly 32 bytes; anything else is a config error.
     pub fn from_base64_env(var_name: &str) -> Result<Self, CryptoError> {
-        let raw = std::env::var(var_name)
-            .map_err(|_| CryptoError::MissingEnv(var_name.to_string()))?;
+        let raw =
+            std::env::var(var_name).map_err(|_| CryptoError::MissingEnv(var_name.to_string()))?;
         Self::from_base64(&raw)
     }
 
@@ -95,11 +95,7 @@ impl WorkspaceKek {
     }
 
     /// Unwrap a stored wrapped KEK using the root key.
-    pub fn unwrap(
-        rk: &RootKey,
-        wrapped: &WrappedKek,
-        aad: &[u8],
-    ) -> Result<Self, CryptoError> {
+    pub fn unwrap(rk: &RootKey, wrapped: &WrappedKek, aad: &[u8]) -> Result<Self, CryptoError> {
         let mut plaintext = xchacha_open(rk.as_bytes(), &wrapped.nonce, &wrapped.ciphertext, aad)?;
         if plaintext.len() != KEY_LEN {
             plaintext.zeroize();

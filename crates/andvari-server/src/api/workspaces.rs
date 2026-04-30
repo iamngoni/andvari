@@ -23,7 +23,8 @@ struct WorkspaceRow {
 #[get("/v1/workspaces")]
 pub async fn list(state: web::Data<AppState>, auth: RequireToken) -> impl Responder {
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     // For now: tokens are scoped to one workspace; list returns just that one.
@@ -59,7 +60,8 @@ pub async fn get_one(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
     let row = match sqlx::query_as::<_, WorkspaceRow>(
         "SELECT id, slug, name, created_at FROM workspaces WHERE slug = $1",

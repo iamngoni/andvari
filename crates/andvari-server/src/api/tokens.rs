@@ -42,7 +42,8 @@ pub async fn create(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let created = match token::create(
@@ -95,7 +96,8 @@ pub async fn list(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let rows = match sqlx::query_as::<_, TokenSummary>(
@@ -139,7 +141,8 @@ pub async fn revoke(
             .json(serde_json::json!({"error":"cannot revoke the token used for this request"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     // Verify the target token belongs to the same workspace before revoking.

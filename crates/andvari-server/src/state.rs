@@ -9,6 +9,7 @@ use andvari_core::seal::kms::{KmsBackend, KmsError};
 use tokio::sync::RwLock;
 
 use crate::kms::VaultTransit;
+use crate::oidc::SharedProvider;
 
 pub type SharedVaultState = Arc<RwLock<VaultState>>;
 pub type SharedUnseal = Arc<RwLock<Option<UnsealProgress>>>;
@@ -19,6 +20,7 @@ pub struct AppState {
     pub vault: SharedVaultState,
     pub unseal: SharedUnseal,
     pub db: Option<sqlx::PgPool>,
+    pub oidc: Option<SharedProvider>,
 }
 
 impl AppState {
@@ -27,11 +29,17 @@ impl AppState {
             vault: Arc::new(RwLock::new(VaultState::sealed())),
             unseal: Arc::new(RwLock::new(None)),
             db: None,
+            oidc: None,
         }
     }
 
     pub fn with_db(mut self, db: sqlx::PgPool) -> Self {
         self.db = Some(db);
+        self
+    }
+
+    pub fn with_oidc(mut self, provider: SharedProvider) -> Self {
+        self.oidc = Some(provider);
         self
     }
 }

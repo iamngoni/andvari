@@ -14,7 +14,9 @@
 
 #![allow(dead_code)] // wired into request handlers by later slices
 
-use andvari_core::audit::{AuditHmacKey, AuditRow, ActorKind, GENESIS_CHAIN, compute_chain, verify_chain};
+use andvari_core::audit::{
+    ActorKind, AuditHmacKey, AuditRow, GENESIS_CHAIN, compute_chain, verify_chain,
+};
 use ipnetwork::IpNetwork;
 use sqlx::PgPool;
 use thiserror::Error;
@@ -48,11 +50,10 @@ pub async fn append(
         .execute(&mut *tx)
         .await?;
 
-    let prev_chain: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT hmac_chain FROM audit_log ORDER BY id DESC LIMIT 1",
-    )
-    .fetch_optional(&mut *tx)
-    .await?;
+    let prev_chain: Option<Vec<u8>> =
+        sqlx::query_scalar("SELECT hmac_chain FROM audit_log ORDER BY id DESC LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await?;
 
     let prev: &[u8] = prev_chain.as_deref().unwrap_or(&GENESIS_CHAIN);
     let canonical = row.canonical_bytes();

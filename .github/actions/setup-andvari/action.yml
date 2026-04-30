@@ -1,0 +1,128 @@
+name: Setup Andvari
+description: Exchange the GitHub Actions OIDC token for a short-lived Andvari token.
+
+inputs:
+  config:
+    description: Path to andvari.toml.
+    required: false
+    default: andvari.toml
+  audience:
+    description: Audience requested from GitHub OIDC and matched by Andvari oidc_trust.
+    required: false
+    default: andvari
+  env:
+    description: Andvari environment to expose as ANDVARI_ENV. Defaults to default_env from config.
+    required: false
+    default: ""
+  server:
+    description: Override the server from andvari.toml.
+    required: false
+    default: ""
+  workspace:
+    description: Override the workspace from andvari.toml.
+    required: false
+    default: ""
+
+outputs:
+  token:
+    description: The short-lived Andvari token.
+    value: ${{ steps.exchange.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read Andvari config
+      id: config
+      shell: bash
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+      run: |
+        python3 - <<'PY'
+        import os
+        import pathlib
+        import tomllib
+
+        config_path = pathlib.Path(os.environ["INPUT_CONFIG"])
+        if not config_path.exists():
+            raise SystemExit(f"{config_path} does not exist")
+
+        data = tomllib.loads(config_path.read_text())
+        output = pathlib.Path(os.environ["GITHUB_OUTPUT"])
+        with output.open("a") as f:
+            for key in ("server", "workspace", "project", "default_env"):
+                value = data.get(key, "")
+                if value is not None:
+                    print(f"{key}={value}", file=f)
+        PY
+
+    - name: Request GitHub OIDC token
+      id: github-oidc
+      shell: bash
+      env:
+        INPUT_AUDIENCE: ${{ inputs.audience }}
+      run: |
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+          echo "GitHub OIDC is unavailable. Add 'permissions: id-token: write' to this job." >&2
+          exit 1
+        fi
+
+        response="$(curl -fsSL \
+          -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUT_AUDIENCE}")"
+
+        token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"${response}")"
+        echo "::add-mask::${token}"
+        {
+          echo "token<<EOF"
+          echo "${token}"
+          echo "EOF"
+        } >> "${GITHUB_OUTPUT}"
+
+    - name: Exchange for Andvari token
+      id: exchange
+      shell: bash
+      env:
+        INPUT_SERVER: ${{ inputs.server }}
+        INPUT_WORKSPACE: ${{ inputs.workspace }}
+        INPUT_ENV: ${{ inputs.env }}
+        CONFIG_SERVER: ${{ steps.config.outputs.server }}
+        CONFIG_WORKSPACE: ${{ steps.config.outputs.workspace }}
+        CONFIG_DEFAULT_ENV: ${{ steps.config.outputs.default_env }}
+        GITHUB_OIDC_TOKEN: ${{ steps.github-oidc.outputs.token }}
+      run: |
+        server="${INPUT_SERVER:-${CONFIG_SERVER}}"
+        workspace="${INPUT_WORKSPACE:-${CONFIG_WORKSPACE}}"
+        target_env="${INPUT_ENV:-${CONFIG_DEFAULT_ENV}}"
+
+        if [ -z "${server}" ] || [ -z "${workspace}" ]; then
+          echo "Andvari server and workspace are required, either in andvari.toml or as action inputs." >&2
+          exit 1
+        fi
+        server="${server%/}"
+
+        response="$(python3 - "${workspace}" "${GITHUB_OIDC_TOKEN}" <<'PY' | \
+          curl -fsSL -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary @- \
+            "${server}/v1/auth/oidc/exchange"
+        import json
+        import sys
+
+        print(json.dumps({"workspace": sys.argv[1], "token": sys.argv[2]}))
+        PY
+        )"
+
+        andvari_token="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' <<<"${response}")"
+        echo "::add-mask::${andvari_token}"
+        echo "ANDVARI_TOKEN=${andvari_token}" >> "${GITHUB_ENV}"
+        echo "ANDVARI_SERVER=${server}" >> "${GITHUB_ENV}"
+        echo "ANDVARI_WORKSPACE=${workspace}" >> "${GITHUB_ENV}"
+        if [ -n "${target_env}" ]; then
+          echo "ANDVARI_ENV=${target_env}" >> "${GITHUB_ENV}"
+        fi
+
+        {
+          echo "token<<EOF"
+          echo "${andvari_token}"
+          echo "EOF"
+        } >> "${GITHUB_OUTPUT}"

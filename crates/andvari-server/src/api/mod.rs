@@ -1,5 +1,6 @@
 //! HTTP API endpoints (everything outside `/v1/sys/*`).
 
+pub mod approvals;
 pub mod environments;
 pub mod init;
 pub mod projects;
@@ -14,6 +15,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     workspaces::configure(cfg);
     projects::configure(cfg);
     environments::configure(cfg);
+    approvals::configure(cfg);
     tokens::configure(cfg);
     secrets::configure(cfg);
 }

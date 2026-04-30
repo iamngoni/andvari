@@ -20,8 +20,10 @@ services:
       POSTGRES_DB: andvari
     volumes:
       - andvari_pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
+    # No host port-mapping by default — Postgres is only reached from the
+    # andvari container over the internal network. Use `docker compose exec
+    # postgres psql ...` for ad-hoc queries. Override with `-f` if you need
+    # external access for tools like DBGate.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U andvari -d andvari"]
       interval: 5s
@@ -45,7 +47,9 @@ services:
       ANDVARI_ROOT_KEY: ${ANDVARI_ROOT_KEY:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
       RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
     ports:
-      - "127.0.0.1:8080:8080"
+      # Dev-only mapping. 18080 keeps us out of the way of other local
+      # services that already squat on 8080 (Traefik, other backends, etc.).
+      - "127.0.0.1:18080:8080"
 
 volumes:
   andvari_pgdata:

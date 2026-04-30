@@ -38,13 +38,11 @@ async fn project_id_for(
     workspace_id: Uuid,
     project_slug: &str,
 ) -> Result<Option<Uuid>, sqlx::Error> {
-    sqlx::query_scalar(
-        "SELECT id FROM projects WHERE workspace_id = $1 AND slug = $2",
-    )
-    .bind(workspace_id)
-    .bind(project_slug)
-    .fetch_optional(pool)
-    .await
+    sqlx::query_scalar("SELECT id FROM projects WHERE workspace_id = $1 AND slug = $2")
+        .bind(workspace_id)
+        .bind(project_slug)
+        .fetch_optional(pool)
+        .await
 }
 
 #[post("/v1/ws/{ws_slug}/projects/{proj_slug}/envs")]
@@ -60,14 +58,14 @@ pub async fn create(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let project_id = match project_id_for(pool, auth.0.workspace_id, &proj_slug).await {
         Ok(Some(id)) => id,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(serde_json::json!({"error":"project not found"}));
+            return HttpResponse::NotFound().json(serde_json::json!({"error":"project not found"}));
         }
         Err(e) => {
             warn!(error = %e, "lookup project");
@@ -116,14 +114,14 @@ pub async fn list(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let project_id = match project_id_for(pool, auth.0.workspace_id, &proj_slug).await {
         Ok(Some(id)) => id,
         Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(serde_json::json!({"error":"project not found"}));
+            return HttpResponse::NotFound().json(serde_json::json!({"error":"project not found"}));
         }
         Err(e) => {
             warn!(error = %e, "lookup project");

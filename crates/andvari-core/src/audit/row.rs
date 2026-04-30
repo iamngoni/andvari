@@ -180,8 +180,10 @@ mod tests {
         let with_none = row.canonical_bytes();
         row.target_kind = Some("");
         let with_empty = row.canonical_bytes();
-        assert_eq!(with_none, with_empty,
-            "None and Some(\"\") deliberately encode the same — see comment");
+        assert_eq!(
+            with_none, with_empty,
+            "None and Some(\"\") deliberately encode the same — see comment"
+        );
     }
 
     #[test]

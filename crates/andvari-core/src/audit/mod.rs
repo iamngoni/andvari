@@ -17,4 +17,4 @@ pub mod chain;
 pub mod row;
 
 pub use chain::{AUDIT_HMAC_INFO, AuditHmacKey, GENESIS_CHAIN, compute_chain, verify_chain};
-pub use row::{AuditRow, ActorKind};
+pub use row::{ActorKind, AuditRow};

@@ -122,15 +122,24 @@ mod tests {
         let mut progress = UnsealProgress::new(3);
         assert!(matches!(
             progress.submit(shares[0].clone()).unwrap(),
-            SubmitOutcome::Accepted { received: 1, threshold: 3 }
+            SubmitOutcome::Accepted {
+                received: 1,
+                threshold: 3
+            }
         ));
         assert!(matches!(
             progress.submit(shares[1].clone()).unwrap(),
-            SubmitOutcome::Accepted { received: 2, threshold: 3 }
+            SubmitOutcome::Accepted {
+                received: 2,
+                threshold: 3
+            }
         ));
         assert!(matches!(
             progress.submit(shares[2].clone()).unwrap(),
-            SubmitOutcome::Threshold { received: 3, threshold: 3 }
+            SubmitOutcome::Threshold {
+                received: 3,
+                threshold: 3
+            }
         ));
         assert!(progress.is_ready());
 

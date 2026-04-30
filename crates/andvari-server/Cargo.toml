@@ -51,5 +51,9 @@ ipnetwork = "0.20"
 argon2 = { workspace = true }
 rand = { workspace = true }
 
+# oidc
+openidconnect = { workspace = true }
+jsonwebtoken = { workspace = true }
+
 [dev-dependencies]
 wiremock = "0.6"

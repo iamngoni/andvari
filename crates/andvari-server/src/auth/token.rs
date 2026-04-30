@@ -88,7 +88,10 @@ pub async fn create(
     let random_b64 = URL_SAFE_NO_PAD.encode(random);
 
     let raw = format!("{TOKEN_LITERAL_PREFIX}{workspace_slug}_{random_b64}");
-    let prefix = random_b64.get(..TOKEN_PREFIX_LEN).unwrap_or(&random_b64).to_string();
+    let prefix = random_b64
+        .get(..TOKEN_PREFIX_LEN)
+        .unwrap_or(&random_b64)
+        .to_string();
 
     let salt = SaltString::generate(&mut Argon2Rng);
     let hash = Argon2::default()
@@ -165,12 +168,10 @@ pub async fn validate(pool: &PgPool, raw: &str) -> Result<TokenContext, TokenErr
             .is_ok()
         {
             // Best-effort touch of last_used_at; ignore failures.
-            let _ = sqlx::query(
-                "UPDATE service_tokens SET last_used_at = now() WHERE id = $1",
-            )
-            .bind(cand.id)
-            .execute(pool)
-            .await;
+            let _ = sqlx::query("UPDATE service_tokens SET last_used_at = now() WHERE id = $1")
+                .bind(cand.id)
+                .execute(pool)
+                .await;
 
             let scopes: Scopes = serde_json::from_value(cand.scopes.clone())
                 .map_err(|e| TokenError::Argon2(format!("scope decode: {e}")))?;
@@ -191,10 +192,12 @@ pub async fn validate(pool: &PgPool, raw: &str) -> Result<TokenContext, TokenErr
 
 /// Mark a token revoked by id. Idempotent.
 pub async fn revoke(pool: &PgPool, token_id: Uuid) -> Result<(), TokenError> {
-    sqlx::query("UPDATE service_tokens SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL")
-        .bind(token_id)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE service_tokens SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
+    )
+    .bind(token_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

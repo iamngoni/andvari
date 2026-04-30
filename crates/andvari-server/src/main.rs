@@ -10,8 +10,10 @@ mod auth;
 mod db;
 mod kms;
 mod middleware;
+mod oidc;
 mod state;
 mod sys;
+mod ui;
 
 async fn not_found() -> impl Responder {
     HttpResponse::NotFound().json(serde_json::json!({ "error": "not found" }))
@@ -45,6 +47,22 @@ async fn main() -> std::io::Result<()> {
     let app_state = match pool {
         Some(pool) => state::AppState::new().with_db(pool),
         None => state::AppState::new(),
+    };
+
+    // Optional OIDC bootstrap.
+    let app_state = if let Some(oidc_cfg) = oidc::OidcConfig::from_env() {
+        match oidc::Provider::discover(&oidc_cfg).await {
+            Ok(p) => {
+                info!(issuer = %oidc_cfg.issuer, "oidc discovery complete");
+                app_state.with_oidc(std::sync::Arc::new(p))
+            }
+            Err(e) => {
+                warn!(error = %e, "oidc discovery failed; oidc endpoints will return 503");
+                app_state
+            }
+        }
+    } else {
+        app_state
     };
 
     match state::unseal_from_env(&app_state.vault).await {
@@ -85,8 +103,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(TracingLogger::default())
             .wrap(from_fn(middleware::require_unsealed))
             .wrap(from_fn(auth::resolve_identity))
+            .wrap(from_fn(oidc::sessions::resolve_session))
             .configure(sys::configure)
+            .configure(ui::configure)
             .configure(api::configure)
+            .configure(oidc::handlers::configure)
             .default_service(web::to(not_found))
     })
     .bind(&bind)?

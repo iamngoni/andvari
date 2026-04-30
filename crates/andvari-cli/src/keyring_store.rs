@@ -6,9 +6,7 @@ use keyring::Entry;
 
 pub fn store(service: &str, account: &str, secret: &str) -> Result<()> {
     let entry = Entry::new(service, account).context("open keyring entry")?;
-    entry
-        .set_password(secret)
-        .context("write to OS keyring")?;
+    entry.set_password(secret).context("write to OS keyring")?;
     Ok(())
 }
 

@@ -13,6 +13,7 @@ use actix_web::{Error, FromRequest, HttpMessage, HttpRequest, HttpResponse, web}
 use std::future::{Ready, ready};
 
 use crate::auth::token::{self, TokenContext};
+use crate::oidc::SessionContext;
 use crate::state::AppState;
 
 /// Try to authenticate the request. Sets [`TokenContext`] in extensions on
@@ -60,6 +61,28 @@ impl FromRequest for RequireToken {
                 "no token",
                 HttpResponse::Unauthorized().json(serde_json::json!({
                     "error": "authentication required",
+                })),
+            )
+            .into()),
+        })
+    }
+}
+
+/// Extractor for routes that require an authenticated human session.
+pub struct RequireUser(pub SessionContext);
+
+impl FromRequest for RequireUser {
+    type Error = Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut actix_web::dev::Payload) -> Self::Future {
+        let ctx = req.extensions().get::<SessionContext>().cloned();
+        ready(match ctx {
+            Some(ctx) => Ok(RequireUser(ctx)),
+            None => Err(actix_web::error::InternalError::from_response(
+                "no session",
+                HttpResponse::Unauthorized().json(serde_json::json!({
+                    "error": "human login required",
                 })),
             )
             .into()),

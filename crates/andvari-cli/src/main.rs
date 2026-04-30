@@ -146,12 +146,16 @@ async fn main() -> Result<()> {
 }
 
 fn build_api(cfg: &Config, cli_token: &Option<String>) -> Result<ApiClient> {
-    let server = cfg.server.clone().context(
-        "no `server` configured (set in andvari.toml, ANDVARI_SERVER, or --server)",
-    )?;
+    let server = cfg
+        .server
+        .clone()
+        .context("no `server` configured (set in andvari.toml, ANDVARI_SERVER, or --server)")?;
     let workspace = cfg.workspace.clone().context("no `workspace` configured")?;
     let project = cfg.project.clone().context("no `project` configured")?;
-    let env = cfg.default_env.clone().context("no `default_env` configured")?;
+    let env = cfg
+        .default_env
+        .clone()
+        .context("no `default_env` configured")?;
 
     let token = match cli_token {
         Some(t) => t.clone(),

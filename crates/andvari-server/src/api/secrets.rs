@@ -40,6 +40,11 @@ pub struct PutBody {
     pub value: Option<String>,
     #[serde(default)]
     pub value_b64: Option<String>,
+    /// Required when the target environment has `requires_approval = true`.
+    /// The approval target must match this secret write; plaintext is never
+    /// stored in the approval record.
+    #[serde(default)]
+    pub approval_id: Option<Uuid>,
 }
 
 #[derive(Serialize)]
@@ -62,6 +67,11 @@ struct VersionRow {
     secret_id: Uuid,
     created_by: Option<Uuid>,
     created_at: OffsetDateTime,
+}
+
+struct EnvPolicy {
+    id: Uuid,
+    requires_approval: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -89,19 +99,55 @@ async fn resolve_env_id(
     .await
 }
 
+async fn resolve_env_policy(
+    pool: &sqlx::PgPool,
+    workspace_id: Uuid,
+    project_slug: &str,
+    env_name: &str,
+) -> Result<Option<EnvPolicy>, sqlx::Error> {
+    let row: Option<(Uuid, bool)> = sqlx::query_as(
+        r#"
+        SELECT e.id, e.requires_approval
+        FROM environments e
+        JOIN projects p ON e.project_id = p.id
+        WHERE p.workspace_id = $1 AND p.slug = $2 AND e.name = $3
+        "#,
+    )
+    .bind(workspace_id)
+    .bind(project_slug)
+    .bind(env_name)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(id, requires_approval)| EnvPolicy {
+        id,
+        requires_approval,
+    }))
+}
+
+fn secret_write_approval_target(
+    project_slug: &str,
+    env_name: &str,
+    key: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "project": project_slug,
+        "env": env_name,
+        "secret": key,
+    })
+}
+
 async fn load_workspace_kek(
     pool: &sqlx::PgPool,
     workspace_id: Uuid,
     workspace_slug: &str,
     rk: &andvari_core::crypto::RootKey,
 ) -> Result<WorkspaceKek, String> {
-    let row: (Vec<u8>, Vec<u8>) = sqlx::query_as(
-        "SELECT kek_wrapped, kek_nonce FROM workspaces WHERE id = $1",
-    )
-    .bind(workspace_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| format!("kek lookup: {e}"))?;
+    let row: (Vec<u8>, Vec<u8>) =
+        sqlx::query_as("SELECT kek_wrapped, kek_nonce FROM workspaces WHERE id = $1")
+            .bind(workspace_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| format!("kek lookup: {e}"))?;
     if row.1.len() != NONCE_LEN {
         return Err("stored kek nonce has wrong length".into());
     }
@@ -129,8 +175,7 @@ fn deny_response(reason: &str) -> HttpResponse {
 }
 
 fn db_unavailable() -> HttpResponse {
-    HttpResponse::ServiceUnavailable()
-        .json(serde_json::json!({ "error": "database unavailable" }))
+    HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": "database unavailable" }))
 }
 
 fn extract_remote_ip(req: &HttpRequest) -> Option<std::net::IpAddr> {
@@ -191,31 +236,63 @@ pub async fn put_secret(
         return db_unavailable();
     };
 
-    let env_id = match resolve_env_id(pool, auth.0.workspace_id, &proj_slug, &env_name).await {
-        Ok(Some(id)) => id,
-        Ok(None) => {
-            return HttpResponse::NotFound()
-                .json(serde_json::json!({"error":"environment not found"}));
+    let env_policy =
+        match resolve_env_policy(pool, auth.0.workspace_id, &proj_slug, &env_name).await {
+            Ok(Some(policy)) => policy,
+            Ok(None) => {
+                return HttpResponse::NotFound()
+                    .json(serde_json::json!({"error":"environment not found"}));
+            }
+            Err(e) => {
+                warn!(error = %e, "resolve env");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
+        };
+    let env_id = env_policy.id;
+
+    let approval_target = secret_write_approval_target(&proj_slug, &env_name, &key);
+    if env_policy.requires_approval {
+        let Some(approval_id) = body.approval_id else {
+            return HttpResponse::Conflict().json(serde_json::json!({
+                "error": "approval required",
+                "action": "secret.write",
+                "target": approval_target,
+            }));
+        };
+        match crate::api::approvals::validate_approved(
+            pool,
+            auth.0.workspace_id,
+            approval_id,
+            "secret.write",
+            &approval_target,
+        )
+        .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return HttpResponse::Forbidden()
+                    .json(serde_json::json!({"error":"approval is missing, not approved, or target does not match"}));
+            }
+            Err(e) => {
+                warn!(error = %e, "validate approval");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
         }
-        Err(e) => {
-            warn!(error = %e, "resolve env");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({"error":"database error"}));
-        }
-    };
+    }
 
     let plaintext = match (body.value.as_ref(), body.value_b64.as_ref()) {
         (Some(v), None) => v.as_bytes().to_vec(),
-        (None, Some(b)) => match base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            b.as_bytes(),
-        ) {
-            Ok(b) => b,
-            Err(_) => {
-                return HttpResponse::BadRequest()
-                    .json(serde_json::json!({"error":"value_b64 is not valid base64"}));
+        (None, Some(b)) => {
+            match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b.as_bytes()) {
+                Ok(b) => b,
+                Err(_) => {
+                    return HttpResponse::BadRequest()
+                        .json(serde_json::json!({"error":"value_b64 is not valid base64"}));
+                }
             }
-        },
+        }
         _ => {
             return HttpResponse::BadRequest().json(serde_json::json!({
                 "error": "exactly one of `value` or `value_b64` must be provided",
@@ -234,7 +311,8 @@ pub async fn put_secret(
         (rk, audit_key)
     };
 
-    let kek = match load_workspace_kek(pool, auth.0.workspace_id, &auth.0.workspace_slug, &rk).await {
+    let kek = match load_workspace_kek(pool, auth.0.workspace_id, &auth.0.workspace_slug, &rk).await
+    {
         Ok(k) => k,
         Err(e) => {
             warn!(error = e, "load kek");
@@ -296,13 +374,12 @@ pub async fn put_secret(
         }
     };
 
-    if let Err(e) = sqlx::query(
-        "UPDATE secrets SET current_version_id = $1, updated_at = now() WHERE id = $2",
-    )
-    .bind(version_id)
-    .bind(secret_id)
-    .execute(pool)
-    .await
+    if let Err(e) =
+        sqlx::query("UPDATE secrets SET current_version_id = $1, updated_at = now() WHERE id = $2")
+            .bind(version_id)
+            .bind(secret_id)
+            .execute(pool)
+            .await
     {
         warn!(error = %e, "update current_version_id");
         return HttpResponse::InternalServerError()
@@ -320,7 +397,16 @@ pub async fn put_secret(
     )
     .await;
 
-    HttpResponse::Created().json(PutResponse { secret_id, version_id })
+    if let Some(approval_id) = body.approval_id {
+        if let Err(e) = crate::api::approvals::mark_executed(pool, approval_id).await {
+            warn!(error = %e, approval_id = %approval_id, "mark approval executed");
+        }
+    }
+
+    HttpResponse::Created().json(PutResponse {
+        secret_id,
+        version_id,
+    })
 }
 
 #[get("/v1/ws/{ws_slug}/projects/{proj_slug}/envs/{env_name}/secrets/{key}")]
@@ -377,8 +463,7 @@ pub async fn get_secret(
     let (secret_id, ciphertext) = match row {
         Some((id, Some(ct))) => (id, ct),
         _ => {
-            return HttpResponse::NotFound()
-                .json(serde_json::json!({"error":"secret not found"}));
+            return HttpResponse::NotFound().json(serde_json::json!({"error":"secret not found"}));
         }
     };
 
@@ -392,7 +477,8 @@ pub async fn get_secret(
         (rk, audit_key)
     };
 
-    let kek = match load_workspace_kek(pool, auth.0.workspace_id, &auth.0.workspace_slug, &rk).await {
+    let kek = match load_workspace_kek(pool, auth.0.workspace_id, &auth.0.workspace_slug, &rk).await
+    {
         Ok(k) => k,
         Err(e) => {
             warn!(error = e, "load kek");
@@ -529,21 +615,20 @@ pub async fn delete_secret(
         }
     };
 
-    let secret_id: Option<Uuid> = match sqlx::query_scalar(
-        "SELECT id FROM secrets WHERE environment_id = $1 AND key = $2",
-    )
-    .bind(env_id)
-    .bind(&key)
-    .fetch_optional(pool)
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "delete secret lookup");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({"error":"database error"}));
-        }
-    };
+    let secret_id: Option<Uuid> =
+        match sqlx::query_scalar("SELECT id FROM secrets WHERE environment_id = $1 AND key = $2")
+            .bind(env_id)
+            .bind(&key)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "delete secret lookup");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
+        };
     let Some(secret_id) = secret_id else {
         return HttpResponse::NotFound().json(serde_json::json!({"error":"secret not found"}));
     };
@@ -613,21 +698,20 @@ pub async fn list_versions(
         }
     };
 
-    let secret_id: Option<Uuid> = match sqlx::query_scalar(
-        "SELECT id FROM secrets WHERE environment_id = $1 AND key = $2",
-    )
-    .bind(env_id)
-    .bind(&key)
-    .fetch_optional(pool)
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "secret lookup");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({"error":"database error"}));
-        }
-    };
+    let secret_id: Option<Uuid> =
+        match sqlx::query_scalar("SELECT id FROM secrets WHERE environment_id = $1 AND key = $2")
+            .bind(env_id)
+            .bind(&key)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "secret lookup");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
+        };
     let Some(secret_id) = secret_id else {
         return HttpResponse::NotFound().json(serde_json::json!({"error":"secret not found"}));
     };
@@ -691,53 +775,50 @@ pub async fn rollback(
         }
     };
 
-    let secret_id: Option<Uuid> = match sqlx::query_scalar(
-        "SELECT id FROM secrets WHERE environment_id = $1 AND key = $2",
-    )
-    .bind(env_id)
-    .bind(&key)
-    .fetch_optional(pool)
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "rollback lookup");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({"error":"database error"}));
-        }
-    };
+    let secret_id: Option<Uuid> =
+        match sqlx::query_scalar("SELECT id FROM secrets WHERE environment_id = $1 AND key = $2")
+            .bind(env_id)
+            .bind(&key)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "rollback lookup");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
+        };
     let Some(secret_id) = secret_id else {
         return HttpResponse::NotFound().json(serde_json::json!({"error":"secret not found"}));
     };
 
     // Confirm the target version belongs to this secret.
-    let target_belongs: Option<Uuid> = match sqlx::query_scalar(
-        "SELECT id FROM secret_versions WHERE id = $1 AND secret_id = $2",
-    )
-    .bind(body.version_id)
-    .bind(secret_id)
-    .fetch_optional(pool)
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "rollback target lookup");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({"error":"database error"}));
-        }
-    };
+    let target_belongs: Option<Uuid> =
+        match sqlx::query_scalar("SELECT id FROM secret_versions WHERE id = $1 AND secret_id = $2")
+            .bind(body.version_id)
+            .bind(secret_id)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "rollback target lookup");
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({"error":"database error"}));
+            }
+        };
     if target_belongs.is_none() {
         return HttpResponse::NotFound()
             .json(serde_json::json!({"error":"version not found for this secret"}));
     }
 
-    if let Err(e) = sqlx::query(
-        "UPDATE secrets SET current_version_id = $1, updated_at = now() WHERE id = $2",
-    )
-    .bind(body.version_id)
-    .bind(secret_id)
-    .execute(pool)
-    .await
+    if let Err(e) =
+        sqlx::query("UPDATE secrets SET current_version_id = $1, updated_at = now() WHERE id = $2")
+            .bind(body.version_id)
+            .bind(secret_id)
+            .execute(pool)
+            .await
     {
         warn!(error = %e, "rollback update");
         return HttpResponse::InternalServerError()

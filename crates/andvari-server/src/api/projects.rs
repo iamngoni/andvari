@@ -38,7 +38,8 @@ pub async fn create(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let row = match sqlx::query_as::<_, ProjectRow>(
@@ -56,8 +57,9 @@ pub async fn create(
     {
         Ok(r) => r,
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
-            return HttpResponse::Conflict()
-                .json(serde_json::json!({"error":"project slug already exists in this workspace"}));
+            return HttpResponse::Conflict().json(
+                serde_json::json!({"error":"project slug already exists in this workspace"}),
+            );
         }
         Err(e) => {
             warn!(error = %e, "project create");
@@ -81,7 +83,8 @@ pub async fn list(
             .json(serde_json::json!({"error":"token does not belong to this workspace"}));
     }
     let Some(pool) = state.db.as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({"error":"db unavailable"}));
+        return HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error":"db unavailable"}));
     };
 
     let rows = match sqlx::query_as::<_, ProjectRow>(

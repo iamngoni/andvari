@@ -52,7 +52,13 @@ pub(crate) fn xchacha_seal(
 ) -> Result<Vec<u8>, CryptoError> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .encrypt(XNonce::from_slice(nonce), Payload { msg: plaintext, aad })
+        .encrypt(
+            XNonce::from_slice(nonce),
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|_| CryptoError::EncryptFailed)
 }
 
@@ -66,7 +72,13 @@ pub(crate) fn xchacha_open(
 ) -> Result<Vec<u8>, CryptoError> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .decrypt(XNonce::from_slice(nonce), Payload { msg: ciphertext, aad })
+        .decrypt(
+            XNonce::from_slice(nonce),
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|_| CryptoError::DecryptFailed)
 }
 

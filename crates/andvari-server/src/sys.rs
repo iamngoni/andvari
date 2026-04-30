@@ -53,10 +53,7 @@ pub struct UnsealRequest {
 }
 
 #[post("/v1/sys/unseal")]
-pub async fn unseal(
-    state: web::Data<AppState>,
-    body: web::Json<UnsealRequest>,
-) -> impl Responder {
+pub async fn unseal(state: web::Data<AppState>, body: web::Json<UnsealRequest>) -> impl Responder {
     if !state.vault.read().await.is_sealed() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": "vault is already unsealed",
@@ -92,16 +89,23 @@ pub async fn unseal(
     };
 
     match outcome {
-        SubmitOutcome::Accepted { received, threshold }
-        | SubmitOutcome::Duplicate { received, threshold } => {
-            HttpResponse::Ok().json(serde_json::json!({
-                "sealed": true,
-                "received": received,
-                "threshold": threshold,
-                "duplicate": matches!(outcome, SubmitOutcome::Duplicate { .. }),
-            }))
+        SubmitOutcome::Accepted {
+            received,
+            threshold,
         }
-        SubmitOutcome::Threshold { received, threshold } => {
+        | SubmitOutcome::Duplicate {
+            received,
+            threshold,
+        } => HttpResponse::Ok().json(serde_json::json!({
+            "sealed": true,
+            "received": received,
+            "threshold": threshold,
+            "duplicate": matches!(outcome, SubmitOutcome::Duplicate { .. }),
+        })),
+        SubmitOutcome::Threshold {
+            received,
+            threshold,
+        } => {
             // We have enough material — try to reconstruct.
             match progress.reconstruct() {
                 Ok(rk) => {
@@ -140,7 +144,9 @@ mod tests {
 
     use crate::state::AppState;
 
-    fn app_with_state(state: AppState) -> App<
+    fn app_with_state(
+        state: AppState,
+    ) -> App<
         impl actix_web::dev::ServiceFactory<
             actix_web::dev::ServiceRequest,
             Config = (),
@@ -268,9 +274,7 @@ mod tests {
         let app = app_with_state(state.clone());
         let svc = test::init_service(app).await;
 
-        let req = test::TestRequest::post()
-            .uri("/v1/sys/seal")
-            .to_request();
+        let req = test::TestRequest::post().uri("/v1/sys/seal").to_request();
         let body: serde_json::Value = test::call_and_read_body_json(&svc, req).await;
         assert_eq!(body["sealed"], true);
         assert!(state.vault.read().await.is_sealed());

@@ -51,8 +51,8 @@ pub fn compute_chain(
     prev_chain: &[u8],
     row_canonical_bytes: &[u8],
 ) -> [u8; CHAIN_LEN] {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&key.0)
-        .expect("HMAC-SHA256 accepts any key length");
+    let mut mac =
+        <Hmac<Sha256> as Mac>::new_from_slice(&key.0).expect("HMAC-SHA256 accepts any key length");
     mac.update(prev_chain);
     mac.update(row_canonical_bytes);
     let bytes = mac.finalize().into_bytes();

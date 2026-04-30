@@ -65,9 +65,7 @@ pub struct ResolveOptions {
 impl Config {
     /// Resolve the layered configuration.
     pub fn resolve(opts: ResolveOptions) -> Result<Self, ConfigError> {
-        let user_path = opts
-            .user_config_path
-            .or_else(default_user_config_path);
+        let user_path = opts.user_config_path.or_else(default_user_config_path);
 
         let start = match opts.start_dir {
             Some(p) => p,
@@ -144,12 +142,14 @@ mod tests {
 
     use super::*;
 
-    fn isolated_resolve(
-        start_dir: &Path,
-        user_path: Option<&Path>,
-    ) -> Result<Config, ConfigError> {
+    fn isolated_resolve(start_dir: &Path, user_path: Option<&Path>) -> Result<Config, ConfigError> {
         // Avoid stomping on the real user's environment for these tests.
-        for var in ["ANDVARI_SERVER", "ANDVARI_WORKSPACE", "ANDVARI_PROJECT", "ANDVARI_DEFAULT_ENV"] {
+        for var in [
+            "ANDVARI_SERVER",
+            "ANDVARI_WORKSPACE",
+            "ANDVARI_PROJECT",
+            "ANDVARI_DEFAULT_ENV",
+        ] {
             unsafe { std::env::remove_var(var) };
         }
         Config::resolve(ResolveOptions {
@@ -162,8 +162,7 @@ mod tests {
     #[test]
     fn empty_dir_yields_empty_config() {
         let tmp = tempfile::tempdir().unwrap();
-        let cfg = isolated_resolve(tmp.path(), Some(&tmp.path().join("nonexistent.toml")))
-            .unwrap();
+        let cfg = isolated_resolve(tmp.path(), Some(&tmp.path().join("nonexistent.toml"))).unwrap();
         assert_eq!(cfg, Config::default());
     }
 
@@ -190,7 +189,11 @@ mod tests {
     #[test]
     fn andvari_toml_walks_up_from_subdir() {
         let tmp = tempfile::tempdir().unwrap();
-        fs::write(tmp.path().join("andvari.toml"), r#"workspace = "from-root""#).unwrap();
+        fs::write(
+            tmp.path().join("andvari.toml"),
+            r#"workspace = "from-root""#,
+        )
+        .unwrap();
         let nested = tmp.path().join("a").join("b").join("c");
         fs::create_dir_all(&nested).unwrap();
 

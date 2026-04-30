@@ -37,7 +37,13 @@ struct SecretListItem {
 }
 
 impl ApiClient {
-    pub fn new(server: String, token: String, workspace: String, project: String, env: String) -> Self {
+    pub fn new(
+        server: String,
+        token: String,
+        workspace: String,
+        project: String,
+        env: String,
+    ) -> Self {
         Self {
             server,
             token,

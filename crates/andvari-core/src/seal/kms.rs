@@ -135,7 +135,10 @@ mod tests {
         let bytes = vec![1u8; 16]; // not 32
         assert!(matches!(
             root_key_from_plaintext(bytes),
-            Err(KmsError::BadPlaintextLength { got: 16, expected: 32 })
+            Err(KmsError::BadPlaintextLength {
+                got: 16,
+                expected: 32
+            })
         ));
     }
 }

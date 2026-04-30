@@ -38,9 +38,13 @@ impl VaultTransit {
     /// `token` is a Vault token with `transit/encrypt/{key}` and
     /// `transit/decrypt/{key}` capabilities, and `key_name` is the name
     /// of the Transit key Andvari will use to wrap its Root Key.
-    pub fn new(addr: &str, token: impl Into<String>, key_name: impl Into<String>) -> Result<Self, KmsError> {
-        let base =
-            Url::parse(addr).map_err(|e| KmsError::Transport(format!("invalid vault addr: {e}")))?;
+    pub fn new(
+        addr: &str,
+        token: impl Into<String>,
+        key_name: impl Into<String>,
+    ) -> Result<Self, KmsError> {
+        let base = Url::parse(addr)
+            .map_err(|e| KmsError::Transport(format!("invalid vault addr: {e}")))?;
         Ok(Self {
             client: Client::builder()
                 .user_agent(concat!("andvari/", env!("CARGO_PKG_VERSION")))
@@ -55,7 +59,12 @@ impl VaultTransit {
     /// For tests: inject a custom HTTP client (so wiremock-driven tests can
     /// hit a local mock server with any URL).
     #[cfg(test)]
-    fn with_client(client: Client, addr: &str, token: &str, key_name: &str) -> Result<Self, KmsError> {
+    fn with_client(
+        client: Client,
+        addr: &str,
+        token: &str,
+        key_name: &str,
+    ) -> Result<Self, KmsError> {
         Ok(Self {
             client,
             base: Url::parse(addr)
