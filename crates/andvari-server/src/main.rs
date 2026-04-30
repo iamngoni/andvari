@@ -5,6 +5,7 @@ use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, fmt};
 
 mod audit;
+mod auth;
 mod db;
 mod kms;
 mod middleware;
@@ -82,6 +83,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(app_state.clone()))
             .wrap(TracingLogger::default())
             .wrap(from_fn(middleware::require_unsealed))
+            .wrap(from_fn(auth::resolve_identity))
             .configure(sys::configure)
             .default_service(web::to(not_found))
     })
