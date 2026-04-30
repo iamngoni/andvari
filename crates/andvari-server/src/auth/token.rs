@@ -21,7 +21,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
 use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::PgPool;
 use thiserror::Error;
 use time::OffsetDateTime;

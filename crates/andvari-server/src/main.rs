@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod api;
 mod audit;
 mod auth;
 mod db;
@@ -85,6 +86,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(from_fn(middleware::require_unsealed))
             .wrap(from_fn(auth::resolve_identity))
             .configure(sys::configure)
+            .configure(api::configure)
             .default_service(web::to(not_found))
     })
     .bind(&bind)?
