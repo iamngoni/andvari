@@ -1,7 +1,6 @@
-//! Core types, errors, and primitives shared across Andvari crates.
-//!
-//! Crypto, audit, and config logic land here as later slices come in.
+//! Core types, errors, and crypto primitives shared across Andvari crates.
 
+pub mod crypto;
 pub mod error;
 
 pub use error::{Error, Result};

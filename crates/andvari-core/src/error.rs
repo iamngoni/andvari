@@ -7,12 +7,12 @@ pub enum Error {
     #[error("vault is sealed")]
     Sealed,
 
-    #[error("crypto error: {0}")]
-    Crypto(String),
+    #[error("crypto: {0}")]
+    Crypto(#[from] crate::crypto::CryptoError),
 
-    #[error("config error: {0}")]
+    #[error("config: {0}")]
     Config(String),
 
-    #[error("io error: {0}")]
+    #[error("io: {0}")]
     Io(#[from] std::io::Error),
 }
