@@ -3,6 +3,7 @@
 pub mod environments;
 pub mod init;
 pub mod projects;
+pub mod secrets;
 pub mod tokens;
 pub mod workspaces;
 
@@ -14,4 +15,5 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     projects::configure(cfg);
     environments::configure(cfg);
     tokens::configure(cfg);
+    secrets::configure(cfg);
 }

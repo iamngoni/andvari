@@ -4,7 +4,7 @@
 //! Service tokens are the primary auth mechanism for non-human callers
 //! (services, CLIs, the Rust SDK). Web sessions land later when OIDC ships.
 
-#![allow(dead_code)] // wired into route handlers in the workspaces/secrets slices
+#![allow(dead_code, unused_imports)] // re-exports surface the auth API for routes
 
 pub mod middleware;
 pub mod scope;
