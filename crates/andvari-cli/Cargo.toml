@@ -1,0 +1,23 @@
+[package]
+name = "andvari-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Andvari command-line interface"
+
+[[bin]]
+name = "andvari"
+path = "src/main.rs"
+
+[dependencies]
+andvari-sdk = { path = "../andvari-sdk" }
+
+clap = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

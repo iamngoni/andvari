@@ -1,0 +1,51 @@
+# Andvari local development stack.
+#
+#   docker compose up         # build + start postgres + andvari
+#   docker compose up -d      # detached
+#   docker compose logs -f andvari
+#
+# The Postgres password and the Andvari root key in this file are local-dev
+# placeholders. Override them via a .env file or your shell before running
+# anywhere that isn't your laptop.
+
+name: andvari
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: andvari
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-andvari}
+      POSTGRES_DB: andvari
+    volumes:
+      - andvari_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U andvari -d andvari"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  andvari:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: andvari:dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ANDVARI_BIND: 0.0.0.0:8080
+      ANDVARI_DATABASE_URL: postgres://andvari:${POSTGRES_PASSWORD:-andvari}@postgres:5432/andvari
+      # Dev-only root key (32 bytes, base64). DO NOT use this anywhere real.
+      ANDVARI_ROOT_KEY: ${ANDVARI_ROOT_KEY:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+      RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  andvari_pgdata:

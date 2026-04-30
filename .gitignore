@@ -1,1 +1,24 @@
 /target
+**/target
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Coverage / profiling
+*.profraw
+tarpaulin-report.html
+coverage/
+
+# Build artifacts that shouldn't ever be committed
+*.pem
+*.key
