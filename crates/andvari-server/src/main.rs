@@ -22,14 +22,26 @@ async fn main() -> std::io::Result<()> {
         .init();
 
     let bind = std::env::var("ANDVARI_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
-    let shared_state = state::shared();
+    let app_state = state::AppState::new();
 
-    match state::unseal_from_env(&shared_state).await {
+    match state::unseal_from_env(&app_state.vault).await {
         Ok(true) => info!("env-var unseal succeeded; vault is unsealed"),
         Ok(false) => info!("ANDVARI_ROOT_KEY not set; vault remains sealed"),
+        Err(e) => warn!(error = %e, "env-var unseal failed; vault remains sealed"),
+    }
+
+    let threshold = match state::shamir_threshold_from_env() {
+        Ok(t) => t,
         Err(e) => {
-            // Misconfigured ANDVARI_ROOT_KEY is operator error — fail loud at boot.
-            warn!(error = %e, "env-var unseal failed; vault remains sealed");
+            warn!(error = %e, "ANDVARI_SHAMIR_THRESHOLD malformed; ignoring");
+            None
+        }
+    };
+    if let Err(e) = state::init_shamir_progress(&app_state, threshold).await {
+        warn!(error = %e, "shamir progress init failed; /v1/sys/unseal will reject");
+    } else if let Some(t) = threshold {
+        if app_state.unseal.read().await.is_some() {
+            info!(threshold = t, "shamir unseal mode active");
         }
     }
 
@@ -37,7 +49,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(shared_state.clone()))
+            .app_data(web::Data::new(app_state.clone()))
             .wrap(TracingLogger::default())
             .wrap(from_fn(middleware::require_unsealed))
             .configure(sys::configure)

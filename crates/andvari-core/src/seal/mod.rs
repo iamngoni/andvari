@@ -13,6 +13,12 @@ use std::sync::Arc;
 
 use crate::crypto::RootKey;
 
+pub mod shamir;
+
+mod progress;
+
+pub use progress::{SubmitOutcome, UnsealProgress};
+
 /// Current seal state of the vault.
 pub enum VaultState {
     /// No Root Key in memory. The API rejects everything except a small set
