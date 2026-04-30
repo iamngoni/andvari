@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, fmt};
 
+mod db;
 mod kms;
 mod middleware;
 mod state;
@@ -23,7 +24,25 @@ async fn main() -> std::io::Result<()> {
         .init();
 
     let bind = std::env::var("ANDVARI_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
-    let app_state = state::AppState::new();
+
+    let pool = match db::connect().await {
+        Ok(pool) => match db::migrate(&pool).await {
+            Ok(()) => Some(pool),
+            Err(e) => {
+                warn!(error = %e, "migrations failed; continuing without database");
+                None
+            }
+        },
+        Err(e) => {
+            warn!(error = %e, "database connection failed; continuing without database");
+            None
+        }
+    };
+
+    let app_state = match pool {
+        Some(pool) => state::AppState::new().with_db(pool),
+        None => state::AppState::new(),
+    };
 
     match state::unseal_from_env(&app_state.vault).await {
         Ok(true) => info!("env-var unseal succeeded; vault is unsealed"),

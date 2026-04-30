@@ -18,6 +18,7 @@ pub type SharedUnseal = Arc<RwLock<Option<UnsealProgress>>>;
 pub struct AppState {
     pub vault: SharedVaultState,
     pub unseal: SharedUnseal,
+    pub db: Option<sqlx::PgPool>,
 }
 
 impl AppState {
@@ -25,7 +26,13 @@ impl AppState {
         Self {
             vault: Arc::new(RwLock::new(VaultState::sealed())),
             unseal: Arc::new(RwLock::new(None)),
+            db: None,
         }
+    }
+
+    pub fn with_db(mut self, db: sqlx::PgPool) -> Self {
+        self.db = Some(db);
+        self
     }
 }
 
