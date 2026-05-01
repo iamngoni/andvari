@@ -37,6 +37,12 @@ struct ApprovalsTemplate<'a> {
 }
 
 #[derive(Template)]
+#[template(path = "audit.html")]
+struct AuditTemplate<'a> {
+    active: &'a str,
+}
+
+#[derive(Template)]
 #[template(path = "login.html")]
 struct LoginTemplate;
 
@@ -82,6 +88,11 @@ async fn approvals() -> impl Responder {
     })
 }
 
+#[get("/audit")]
+async fn audit() -> impl Responder {
+    render(AuditTemplate { active: "audit" })
+}
+
 fn render<T: Template>(template: T) -> HttpResponse {
     match template.render() {
         Ok(html) => HttpResponse::Ok()
@@ -100,5 +111,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         .service(secrets)
         .service(secret_detail)
         .service(tokens)
-        .service(approvals);
+        .service(approvals)
+        .service(audit);
 }

@@ -8,7 +8,8 @@ use andvari_core::seal::UnsealProgress;
 use andvari_core::seal::kms::{KmsBackend, KmsError};
 use tokio::sync::RwLock;
 
-use crate::kms::VaultTransit;
+use crate::dynamic::EngineRegistry;
+use crate::kms::{AwsKms, VaultTransit};
 use crate::oidc::SharedProvider;
 
 pub type SharedVaultState = Arc<RwLock<VaultState>>;
@@ -21,6 +22,7 @@ pub struct AppState {
     pub unseal: SharedUnseal,
     pub db: Option<sqlx::PgPool>,
     pub oidc: Option<SharedProvider>,
+    pub engines: EngineRegistry,
 }
 
 impl AppState {
@@ -30,6 +32,7 @@ impl AppState {
             unseal: Arc::new(RwLock::new(None)),
             db: None,
             oidc: None,
+            engines: EngineRegistry::default(),
         }
     }
 
@@ -40,6 +43,11 @@ impl AppState {
 
     pub fn with_oidc(mut self, provider: SharedProvider) -> Self {
         self.oidc = Some(provider);
+        self
+    }
+
+    pub fn with_engines(mut self, engines: EngineRegistry) -> Self {
+        self.engines = engines;
         self
     }
 }
@@ -148,6 +156,12 @@ pub async fn unseal_from_kms(
             })?;
             Box::new(VaultTransit::new(addr, token, key)?)
         }
+        "aws-kms" => {
+            let aws = AwsKms::from_env().await?.ok_or_else(|| {
+                KmsError::Transport("ANDVARI_KMS_AWS_KEY_ID is required for aws-kms".into())
+            })?;
+            Box::new(aws)
+        }
         other => {
             return Err(KmsError::Transport(format!(
                 "unknown ANDVARI_KMS_PROVIDER: {other}"
@@ -171,9 +185,15 @@ pub async fn unseal_from_kms(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Tests that touch `ANDVARI_ROOT_KEY` must hold this lock — `cargo test`
+    /// runs cases in parallel within a process, and env vars are global state.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[tokio::test]
     async fn no_env_var_keeps_state_sealed() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         unsafe { std::env::remove_var("ANDVARI_ROOT_KEY") };
         let app = AppState::new();
         assert!(!unseal_from_env(&app.vault).await.unwrap());
@@ -185,6 +205,7 @@ mod tests {
         use base64::Engine;
         use base64::engine::general_purpose::STANDARD;
 
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let var = "ANDVARI_ROOT_KEY";
         let key_b64 = STANDARD.encode([7u8; 32]);
         unsafe { std::env::set_var(var, key_b64) };

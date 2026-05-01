@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block title %}Audit Log — Andvari{% endblock %}
+{% block content %}
+<section class="page" style="view-transition-name: audit-page">
+  <header class="page-head">
+    <h1>Audit Log</h1>
+    <p class="muted">Live append-only stream. New events appear at the top within ~2s.</p>
+  </header>
+
+  <div class="audit-controls" style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+    <span id="audit-status" class="badge badge-ok">streaming</span>
+    <button id="audit-pause" class="button" type="button" style="margin-left:auto">Pause</button>
+    <button id="audit-clear" class="button" type="button">Clear view</button>
+  </div>
+
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Actor</th>
+        <th>Action</th>
+        <th>Target</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody id="audit-tbody">
+      <tr id="audit-empty"><td colspan="5" class="muted">Listening for events…</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<script>
+(function () {
+  const statusEl = document.getElementById('audit-status');
+  const pauseBtn = document.getElementById('audit-pause');
+  const clearBtn = document.getElementById('audit-clear');
+  const tbody = document.getElementById('audit-tbody');
+  const emptyRow = document.getElementById('audit-empty');
+  let paused = false;
+  let es = null;
+
+  function fmtTs(ts) {
+    try { return new Date(ts).toLocaleString(); } catch (_) { return ts; }
+  }
+
+  function appendRow(row) {
+    if (paused) return;
+    if (emptyRow && emptyRow.parentNode) emptyRow.remove();
+    const tr = document.createElement('tr');
+    tr.style.viewTransitionName = 'audit-row-' + row.id;
+    tr.innerHTML = [
+      '<td>', fmtTs(row.ts), '</td>',
+      '<td><code>', row.actor_kind, '</code></td>',
+      '<td>', row.action, '</td>',
+      '<td>', row.target_kind || '', ' ', row.target_id ? '<code>' + row.target_id.slice(0,8) + '</code>' : '', '</td>',
+      '<td>', row.ip || '', '</td>',
+    ].join('');
+    tbody.insertBefore(tr, tbody.firstChild);
+    while (tbody.children.length > 200) tbody.removeChild(tbody.lastChild);
+  }
+
+  function connect() {
+    const ws = (location.pathname.split('/audit')[0]) || '';
+    const slug = (document.body.dataset.workspace || (document.querySelector('.tiny-logo')?.textContent || '').toLowerCase());
+    const url = '/v1/ws/' + (slug || 'default') + '/audit/stream';
+    es = new EventSource(url, { withCredentials: true });
+    es.addEventListener('audit', ev => {
+      try { appendRow(JSON.parse(ev.data)); } catch (_) {}
+    });
+    es.onopen = () => { statusEl.textContent = 'streaming'; statusEl.className = 'badge badge-ok'; };
+    es.onerror = () => { statusEl.textContent = 'reconnecting…'; statusEl.className = 'badge badge-warn'; };
+  }
+
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    statusEl.textContent = paused ? 'paused' : 'streaming';
+  });
+  clearBtn.addEventListener('click', () => {
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  });
+  connect();
+})();
+</script>
+{% endblock %}

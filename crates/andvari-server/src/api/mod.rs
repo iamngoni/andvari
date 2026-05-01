@@ -1,6 +1,7 @@
 //! HTTP API endpoints (everything outside `/v1/sys/*`).
 
 pub mod approvals;
+pub mod audit_view;
 pub mod environments;
 pub mod init;
 pub mod projects;
@@ -18,4 +19,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     approvals::configure(cfg);
     tokens::configure(cfg);
     secrets::configure(cfg);
+    audit_view::configure(cfg);
+    crate::webhooks::configure(cfg);
+    crate::dynamic::api::configure(cfg);
 }

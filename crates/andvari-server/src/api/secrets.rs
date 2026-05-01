@@ -216,6 +216,17 @@ async fn audit_action(
     // Strip the "secret." prefix for the metric label so the dashboards stay tidy.
     let op = action.strip_prefix("secret.").unwrap_or(action);
     crate::metrics::record_secret_op(op, outcome);
+
+    // Fan out to subscribed webhooks. The payload deliberately omits any
+    // plaintext value — only metadata makes the wire.
+    let payload = serde_json::json!({
+        "event": action,
+        "workspace_id": workspace_id,
+        "actor_id": actor_id,
+        "target_kind": "secret",
+        "target_id": target_id,
+    });
+    crate::webhooks::dispatcher::fire(pool, workspace_id, action, payload).await;
 }
 
 // ---------------------------------------------------------------------------

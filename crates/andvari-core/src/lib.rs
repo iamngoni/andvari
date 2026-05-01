@@ -2,6 +2,7 @@
 
 pub mod audit;
 pub mod crypto;
+pub mod dynamic;
 pub mod error;
 pub mod seal;
 

@@ -46,6 +46,7 @@ sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio",
     "tls-rustls",
     "postgres",
+    "mysql",
     "uuid",
     "time",
     "json",
@@ -87,6 +88,12 @@ async-trait = "0.1"
 # oidc
 openidconnect = { version = "3", default-features = false, features = ["reqwest", "rustls-tls"] }
 jsonwebtoken = "9"
+
+# aws (sts for dynamic creds, kms for cloud unseal)
+aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio"] }
+aws-sdk-sts = { version = "1", default-features = false, features = ["rt-tokio", "behavior-version-latest"] }
+aws-sdk-kms = { version = "1", default-features = false, features = ["rt-tokio", "behavior-version-latest"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["rt-tokio", "behavior-version-latest"] }
 
 [profile.release]
 lto = "thin"

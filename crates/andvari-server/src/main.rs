@@ -6,16 +6,20 @@ use tracing_subscriber::{EnvFilter, fmt};
 
 mod api;
 mod audit;
+mod audit_replication;
 mod auth;
 mod db;
+mod dynamic;
 mod kms;
 mod log_redact;
 mod metrics;
 mod middleware;
 mod oidc;
+mod spire;
 mod state;
 mod sys;
 mod ui;
+mod webhooks;
 
 async fn not_found() -> impl Responder {
     HttpResponse::NotFound().json(serde_json::json!({ "error": "not found" }))
@@ -97,6 +101,57 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    // Configure dynamic-secrets engines from environment.
+    let mut engines: Vec<std::sync::Arc<dyn andvari_core::dynamic::DynamicEngine>> = Vec::new();
+    match dynamic::postgres::PostgresEngine::from_env().await {
+        Ok(Some(engine)) => {
+            info!("postgres dynamic engine configured");
+            engines.push(std::sync::Arc::new(engine));
+        }
+        Ok(None) => {}
+        Err(e) => warn!(error = %e, "postgres dynamic engine init failed"),
+    }
+    match dynamic::mysql::MySqlEngine::from_env().await {
+        Ok(Some(engine)) => {
+            info!("mysql dynamic engine configured");
+            engines.push(std::sync::Arc::new(engine));
+        }
+        Ok(None) => {}
+        Err(e) => warn!(error = %e, "mysql dynamic engine init failed"),
+    }
+    match dynamic::aws_sts::AwsStsEngine::from_env().await {
+        Ok(Some(engine)) => {
+            info!("aws-sts dynamic engine configured");
+            engines.push(std::sync::Arc::new(engine));
+        }
+        Ok(None) => {}
+        Err(e) => warn!(error = %e, "aws-sts dynamic engine init failed"),
+    }
+    if let Some(engine) = dynamic::ssh_otp::SshOtpEngine::from_env() {
+        info!("ssh-otp dynamic engine configured");
+        engines.push(std::sync::Arc::new(engine));
+    }
+    let app_state = app_state.with_engines(dynamic::EngineRegistry::from_engines(engines));
+
+    // Background webhook delivery worker — runs as long as the runtime is alive.
+    if let Some(pool) = app_state.db.clone() {
+        webhooks::worker::spawn(pool);
+        info!("webhook delivery worker started");
+    }
+
+    // Optional S3 audit replication.
+    if let (Some(pool), Some(cfg)) = (
+        app_state.db.clone(),
+        audit_replication::S3Config::from_env(),
+    ) {
+        info!(bucket = %cfg.bucket, "audit replication to S3 started");
+        audit_replication::spawn(pool, cfg);
+    }
+
+    if let Some(cfg) = spire::init_from_env() {
+        info!(trust_domain = %cfg.trust_domain, header = %cfg.header, "spire peer-id middleware enabled");
+    }
+
     info!(%bind, "andvari-server starting");
 
     HttpServer::new(move || {
@@ -106,6 +161,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(from_fn(middleware::require_unsealed))
             .wrap(from_fn(auth::resolve_identity))
             .wrap(from_fn(oidc::sessions::resolve_session))
+            .wrap(from_fn(spire::resolve_peer))
             .configure(sys::configure)
             .configure(metrics::configure)
             .configure(ui::configure)

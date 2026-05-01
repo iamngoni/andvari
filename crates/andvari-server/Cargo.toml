@@ -58,6 +58,18 @@ jsonwebtoken = { workspace = true }
 # observability
 prometheus = "0.13"
 once_cell = { workspace = true }
+tokio-stream = "0.1"
+futures-util = "0.3"
+
+# webhooks
+hmac = { workspace = true }
+sha2 = { workspace = true }
+
+# aws (dynamic STS engine, KMS unseal, S3 audit replication)
+aws-config = { workspace = true }
+aws-sdk-sts = { workspace = true }
+aws-sdk-kms = { workspace = true }
+aws-sdk-s3 = { workspace = true }
 
 [dev-dependencies]
 wiremock = "0.6"
