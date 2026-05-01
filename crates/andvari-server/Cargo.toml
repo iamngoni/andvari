@@ -55,5 +55,9 @@ rand = { workspace = true }
 openidconnect = { workspace = true }
 jsonwebtoken = { workspace = true }
 
+# observability
+prometheus = "0.13"
+once_cell = { workspace = true }
+
 [dev-dependencies]
 wiremock = "0.6"

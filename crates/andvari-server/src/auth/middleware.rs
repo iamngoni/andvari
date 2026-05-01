@@ -28,8 +28,14 @@ where
     if let Some(raw) = bearer_token(&req) {
         if let Some(state) = req.app_data::<web::Data<AppState>>().cloned() {
             if let Some(pool) = state.db.as_ref() {
-                if let Ok(ctx) = token::validate(pool, raw).await {
-                    req.extensions_mut().insert(ctx);
+                match token::validate(pool, raw).await {
+                    Ok(ctx) => {
+                        crate::metrics::record_auth_event("token", "ok");
+                        req.extensions_mut().insert(ctx);
+                    }
+                    Err(_) => {
+                        crate::metrics::record_auth_event("token", "rejected");
+                    }
                 }
             }
         }

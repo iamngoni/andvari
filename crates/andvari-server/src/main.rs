@@ -9,6 +9,8 @@ mod audit;
 mod auth;
 mod db;
 mod kms;
+mod log_redact;
+mod metrics;
 mod middleware;
 mod oidc;
 mod state;
@@ -105,6 +107,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(from_fn(auth::resolve_identity))
             .wrap(from_fn(oidc::sessions::resolve_session))
             .configure(sys::configure)
+            .configure(metrics::configure)
             .configure(ui::configure)
             .configure(api::configure)
             .configure(oidc::handlers::configure)

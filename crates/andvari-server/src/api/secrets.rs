@@ -206,9 +206,16 @@ async fn audit_action(
             .and_then(|h| h.to_str().ok()),
         request_id: None,
     };
-    if let Err(e) = audit::append(pool, key, row).await {
-        warn!(error = %e, action, "audit append failed");
-    }
+    let outcome = match audit::append(pool, key, row).await {
+        Ok(_) => "ok",
+        Err(e) => {
+            warn!(error = %e, action, "audit append failed");
+            "audit_err"
+        }
+    };
+    // Strip the "secret." prefix for the metric label so the dashboards stay tidy.
+    let op = action.strip_prefix("secret.").unwrap_or(action);
+    crate::metrics::record_secret_op(op, outcome);
 }
 
 // ---------------------------------------------------------------------------
