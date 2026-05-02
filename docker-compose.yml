@@ -1,12 +1,12 @@
 # Andvari local development stack.
 #
-#   docker compose up         # build + start postgres + andvari
+#   docker compose up         # build + start postgres + pocket-id + andvari
 #   docker compose up -d      # detached
 #   docker compose logs -f andvari
 #
-# The Postgres password and the Andvari root key in this file are local-dev
-# placeholders. Override them via a .env file or your shell before running
-# anywhere that isn't your laptop.
+# The Postgres password, Andvari root key, and Pocket ID encryption key in
+# this file are local-dev placeholders. Override them via a .env file or
+# your shell before running anywhere that isn't your laptop.
 
 name: andvari
 
@@ -22,14 +22,40 @@ services:
       - andvari_pgdata:/var/lib/postgresql/data
     # No host port-mapping by default — Postgres is only reached from the
     # andvari container over the internal network. Use `docker compose exec
-    # postgres psql ...` for ad-hoc queries. Override with `-f` if you need
-    # external access for tools like DBGate.
+    # postgres psql ...` for ad-hoc queries.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U andvari -d andvari"]
       interval: 5s
       timeout: 3s
       retries: 10
       start_period: 10s
+
+  # Pocket ID — self-hosted OIDC provider for browser logins.
+  #
+  # Reachable at http://pocket-id.localhost:1411 (the `*.localhost` TLD
+  # auto-resolves to 127.0.0.1 on every modern OS — no /etc/hosts edit
+  # needed). The `extra_hosts` block on andvari maps the same hostname
+  # to the host gateway from inside the andvari container, so server-side
+  # OIDC discovery and browser-side redirects use the *same* issuer URL.
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v2
+    restart: unless-stopped
+    environment:
+      APP_URL: http://pocket-id.localhost:1411
+      # Dev-only encryption key (32 bytes, base64). Generate a real one with
+      # `openssl rand -base64 32` and set ANDVARI_POCKET_ID_KEY in .env.
+      ENCRYPTION_KEY: ${ANDVARI_POCKET_ID_KEY:-3cR0JqxJg2nMd1Fiu1GtJtkuBZeJxvXJh1yCDOG/2so=}
+      TRUST_PROXY: "false"
+    ports:
+      - "127.0.0.1:1411:1411"
+    volumes:
+      - andvari_pocket_id_data:/app/data
+    healthcheck:
+      test: ["CMD", "/app/pocket-id", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   andvari:
     build:
@@ -40,12 +66,34 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      pocket-id:
+        condition: service_started
     environment:
       ANDVARI_BIND: 0.0.0.0:8080
       ANDVARI_DATABASE_URL: postgres://andvari:${POSTGRES_PASSWORD:-andvari}@postgres:5432/andvari
       # Dev-only root key (32 bytes, base64). DO NOT use this anywhere real.
       ANDVARI_ROOT_KEY: ${ANDVARI_ROOT_KEY:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
       RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
+
+      # OIDC — Andvari talks to Pocket ID for human (browser) logins. The
+      # issuer must be reachable by *both* the browser and the andvari
+      # container at the same URL, hence the .localhost trick + extra_hosts.
+      #
+      # CLIENT_ID and CLIENT_SECRET are blank by default — Pocket ID requires
+      # a one-time admin bootstrap to create the OAuth2 client. After
+      # bootstrapping, set them in .env and `docker compose up -d` to apply.
+      # See docs/oidc/pocket-id.md for the full walkthrough.
+      ANDVARI_OIDC_ISSUER: http://pocket-id.localhost:1411
+      ANDVARI_OIDC_CLIENT_ID: ${ANDVARI_OIDC_CLIENT_ID:-}
+      ANDVARI_OIDC_CLIENT_SECRET: ${ANDVARI_OIDC_CLIENT_SECRET:-}
+      ANDVARI_OIDC_REDIRECT_URL: http://127.0.0.1:18080/v1/auth/oidc/callback
+      ANDVARI_OIDC_DEFAULT_WORKSPACE: ${ANDVARI_OIDC_DEFAULT_WORKSPACE:-}
+      ANDVARI_OIDC_DEFAULT_ROLE: ${ANDVARI_OIDC_DEFAULT_ROLE:-reader}
+    extra_hosts:
+      # Lets the andvari container resolve pocket-id.localhost to the host
+      # gateway, so server-side OIDC discovery hits the same URL the browser
+      # uses. Without this, the issuer-URL match would fail at JWT validation.
+      - "pocket-id.localhost:host-gateway"
     ports:
       # Dev-only mapping. 18080 keeps us out of the way of other local
       # services that already squat on 8080 (Traefik, other backends, etc.).
@@ -53,3 +101,4 @@ services:
 
 volumes:
   andvari_pgdata:
+  andvari_pocket_id_data:

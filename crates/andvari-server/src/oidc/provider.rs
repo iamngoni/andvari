@@ -37,13 +37,16 @@ pub struct OidcConfig {
 
 impl OidcConfig {
     pub fn from_env() -> Option<Self> {
-        let issuer = std::env::var("ANDVARI_OIDC_ISSUER").ok()?;
-        let client_id = std::env::var("ANDVARI_OIDC_CLIENT_ID").ok()?;
-        let redirect_url = std::env::var("ANDVARI_OIDC_REDIRECT_URL").ok()?;
-        let client_secret = std::env::var("ANDVARI_OIDC_CLIENT_SECRET").ok();
-        let default_workspace = std::env::var("ANDVARI_OIDC_DEFAULT_WORKSPACE").ok();
+        // Treat empty strings as unset — docker-compose default-expansion
+        // (`${VAR:-}`) populates env vars with empty strings, and we don't
+        // want that to count as "OIDC configured".
+        let issuer = non_empty("ANDVARI_OIDC_ISSUER")?;
+        let client_id = non_empty("ANDVARI_OIDC_CLIENT_ID")?;
+        let redirect_url = non_empty("ANDVARI_OIDC_REDIRECT_URL")?;
+        let client_secret = non_empty("ANDVARI_OIDC_CLIENT_SECRET");
+        let default_workspace = non_empty("ANDVARI_OIDC_DEFAULT_WORKSPACE");
         let default_role =
-            std::env::var("ANDVARI_OIDC_DEFAULT_ROLE").unwrap_or_else(|_| "reader".to_string());
+            non_empty("ANDVARI_OIDC_DEFAULT_ROLE").unwrap_or_else(|| "reader".to_string());
         Some(Self {
             issuer,
             client_id,
@@ -52,6 +55,13 @@ impl OidcConfig {
             default_workspace,
             default_role,
         })
+    }
+}
+
+fn non_empty(var: &str) -> Option<String> {
+    match std::env::var(var) {
+        Ok(v) if !v.trim().is_empty() => Some(v),
+        _ => None,
     }
 }
 
