@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Andvari · First-run setup</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/assets/andvari.css">
+  </head>
+  <body>
+    <main class="login-page">
+      <section class="login-panel">
+        <span class="logo" aria-hidden="true">
+          <svg width="18" height="20" viewBox="0 0 14 16" fill="none"><path d="M7 0.5 12.5 2.4v4.9c0 3.7-2.2 6.5-5.5 8.2-3.3-1.7-5.5-4.5-5.5-8.2V2.4L7 .5Z" fill="currentColor"/></svg>
+        </span>
+        <h1>Set up your vault</h1>
+        <p>This is a fresh Andvari install. Create your first workspace — you'll get a one-time bootstrap token to authenticate the CLI and create human users.</p>
+
+        {% if sealed %}
+        <div class="alert alert-error">
+          <strong>Vault is sealed.</strong>
+          <p>Set <code>ANDVARI_ROOT_KEY</code> or configure a KMS unseal provider before running setup.</p>
+        </div>
+        {% endif %}
+
+        {% match error %}{% when Some with (msg) %}
+        <div class="alert alert-error"><strong>Setup failed.</strong><p>{{ msg }}</p></div>
+        {% when None %}{% endmatch %}
+
+        <form method="post" action="/setup" class="setup-form">
+          <label class="field">
+            <span class="field-label">Workspace slug</span>
+            <input class="input" name="slug" type="text" pattern="[a-z0-9][a-z0-9\-]{0,62}[a-z0-9]" minlength="2" maxlength="64" placeholder="acme" required {% if sealed %}disabled{% endif %}>
+            <small>Lowercase letters, digits, hyphens. 2–64 chars.</small>
+          </label>
+          <label class="field">
+            <span class="field-label">Workspace name</span>
+            <input class="input" name="name" type="text" maxlength="120" placeholder="Acme Inc." required {% if sealed %}disabled{% endif %}>
+          </label>
+          <button class="button accent block lg" type="submit" {% if sealed %}disabled{% endif %}>Create workspace</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

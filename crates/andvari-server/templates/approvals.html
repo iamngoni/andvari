@@ -6,50 +6,27 @@
 <section class="page">
   <header class="page-header">
     <h1 class="page-title">Approvals</h1>
-    <div class="meta"><span>Workspace:</span><strong>Spirit Finder</strong><span>·</span><span>2 pending reviews</span></div>
+    <div class="meta"><span>Workspace</span><strong>{{ workspace_name }}</strong></div>
   </header>
 
   <article class="card wide-card">
     <div class="card-header">
-      <h2 class="card-title">Pending approval queue</h2>
-      <span class="pill pending">2 pending</span>
-    </div>
-    <div class="approval-card">
       <div>
-        <strong>Rotate DATABASE_URL in prod</strong>
-        <div class="subtle">Requested by jane@spirit.dev · 2 of 2 approvers required</div>
+        <h2 class="card-title">Pending requests</h2>
+        <p class="card-subtitle">Two-of-N approvals for sensitive secret writes.</p>
       </div>
-      <div class="detail-actions"><button class="button" type="button">Reject</button><button class="button primary" type="button">Approve</button></div>
     </div>
-    <div class="approval-card">
+    <div class="empty">
+      <span class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-6.5 6.5 4 4L15 11"/><path d="M3 21h12"/></svg>
+      </span>
       <div>
-        <strong>Grant writer role to svc-deploy</strong>
-        <div class="subtle">Requested by owner@spirit.dev · 1 of 2 approvers recorded</div>
+        <h3 class="empty-title">Browser review is on the roadmap</h3>
+        <p class="empty-body">Pending approvals are issued and resolved via the API today. List what's open:</p>
       </div>
-      <div class="detail-actions"><button class="button" type="button">Reject</button><button class="button primary" type="button">Approve</button></div>
+      <pre class="code-block"><code>curl $ANDVARI_URL/v1/ws/{{ workspace_slug }}/approvals?state=pending \
+  -H "Authorization: Bearer $ANDVARI_TOKEN"</code></pre>
     </div>
   </article>
-
-  <div class="two-col" style="margin-top:16px">
-    <article class="card">
-      <div class="card-header"><h2 class="card-title">Review: DATABASE_URL rotation</h2><span class="pill pending">pending approval</span></div>
-      <div style="padding:24px">
-        <table class="table"><tbody>
-          <tr><td class="subtle">Action</td><td>secret.write</td></tr>
-          <tr><td class="subtle">Target</td><td>spirit-finder / prod / DATABASE_URL</td></tr>
-          <tr><td class="subtle">Requester</td><td>jane@spirit.dev</td></tr>
-          <tr><td class="subtle">Audit impact</td><td>1 secret version, 2 dependent services, no active leases</td></tr>
-        </tbody></table>
-      </div>
-    </article>
-    <aside class="card">
-      <div class="card-header"><h2 class="card-title">Required checks</h2></div>
-      <div class="assistant-body">
-        <div class="check-row"><span class="check-icon" style="background:var(--green-soft); color:var(--green)">✓</span><div><strong>Requester cannot self-approve</strong><span>Policy enforced server-side</span></div></div>
-        <div class="check-row"><span class="check-icon" style="background:var(--green-soft); color:var(--green)">✓</span><div><strong>Target matches write request</strong><span>No plaintext stored in approval</span></div></div>
-        <div class="check-row"><span class="check-icon" style="background:var(--amber-soft); color:var(--amber)">!</span><div><strong>One more signoff needed</strong><span>Status changes to approved at threshold</span></div></div>
-      </div>
-    </aside>
-  </div>
 </section>
 {% endblock %}

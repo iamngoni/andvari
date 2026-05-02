@@ -6,34 +6,28 @@
 <section class="page">
   <header class="page-header">
     <h1 class="page-title">Tokens</h1>
-    <div class="meta"><span>Workspace:</span><strong>Spirit Finder</strong><span>·</span><span>14 service · 2 human</span></div>
+    <div class="meta"><span>Workspace</span><strong>{{ workspace_name }}</strong></div>
   </header>
 
-  <div class="two-col">
-    <article class="card">
-      <div class="card-header"><h2 class="card-title">Active service tokens</h2><a class="button primary" href="#new-token">Create token</a></div>
-      <div style="padding: 0 24px 8px">
-        <table class="table">
-          <thead><tr><th>Name</th><th>Scope</th><th>Last Used</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td><strong>svc-api-gateway</strong><div class="subtle">andv_spirit-finder_x2a9…</div></td><td>read · prod</td><td>2m ago</td><td><span class="pill">Active</span></td></tr>
-            <tr><td><strong>svc-deploy</strong><div class="subtle">andv_spirit-finder_f81c…</div></td><td>read/write · prod</td><td>15m ago</td><td><span class="pill">Active</span></td></tr>
-            <tr><td><strong>svc-observ</strong><div class="subtle">andv_spirit-finder_b09e…</div></td><td>read · prod</td><td>2h ago</td><td><span class="pill">Active</span></td></tr>
-          </tbody>
-        </table>
+  <article class="card wide-card">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Service tokens</h2>
+        <p class="card-subtitle">Stored as Argon2id hashes. The raw token is shown exactly once on creation.</p>
       </div>
-    </article>
-
-    <aside class="card" id="new-token">
-      <div class="card-header"><h2 class="card-title">Create token</h2></div>
-      <form class="form" method="post" action="/v1/ws/spirit-finder/tokens">
-        <div class="form-row"><label for="token-name">Name</label><input class="input" id="token-name" name="name" value="svc-deploy"></div>
-        <div class="form-row"><label for="project">Project</label><input class="input" id="project" name="project" value="spirit-finder"></div>
-        <div class="form-row"><label for="env">Environment</label><select class="select" id="env" name="env"><option>prod</option><option>staging</option><option>dev</option></select></div>
-        <div class="form-row"><label for="ops">Operations</label><select class="select" id="ops" name="ops"><option>read</option><option>read, write</option><option>read, write, lease</option></select></div>
-        <button class="button primary" type="submit">Create token</button>
-      </form>
-    </aside>
-  </div>
+    </div>
+    <div class="empty">
+      <span class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m16 7 3 3"/></svg>
+      </span>
+      <div>
+        <h3 class="empty-title">Mint, list, and revoke via API</h3>
+        <p class="empty-body">A browser flow for token management is on the roadmap. For now, use the API or CLI:</p>
+      </div>
+      <pre class="code-block"><code>curl -X POST $ANDVARI_URL/v1/ws/{{ workspace_slug }}/tokens \
+  -H "Authorization: Bearer $ANDVARI_BOOTSTRAP" \
+  -d '{"name":"svc-deploy","scopes":{"projects":["*"],"envs":["prod"],"ops":["read","write"]}}'</code></pre>
+    </div>
+  </article>
 </section>
 {% endblock %}

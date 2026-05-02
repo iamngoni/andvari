@@ -3,19 +3,33 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Andvari · Login</title>
+    <title>Andvari · Sign in</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/assets/andvari.css">
   </head>
   <body>
     <main class="login-page">
       <section class="login-panel">
-        <span class="logo" style="width:36px;height:36px" aria-hidden="true">
+        <span class="logo" aria-hidden="true">
           <svg width="18" height="20" viewBox="0 0 14 16" fill="none"><path d="M7 0.5 12.5 2.4v4.9c0 3.7-2.2 6.5-5.5 8.2-3.3-1.7-5.5-4.5-5.5-8.2V2.4L7 .5Z" fill="currentColor"/></svg>
         </span>
-        <h1>Andvari</h1>
-        <p>Sign in to Spirit Finder to manage secrets, tokens, approvals, and audit history.</p>
-        <a class="button primary" href="/v1/auth/oidc/login" style="width:100%">Continue with OIDC</a>
+        <h1>Sign in to Andvari</h1>
+        <p>Manage secrets, tokens, approvals, and audit history for your workspace.</p>
+
+        {% match error %}{% when Some with (msg) %}
+        <div class="alert alert-error"><strong>Sign-in failed.</strong><p>{{ msg }}</p></div>
+        {% when None %}{% endmatch %}
+
+        {% if oidc_enabled %}
+        <a class="button accent block lg" href="/v1/auth/oidc/login">Continue with SSO</a>
+        <p class="muted" style="margin-top:14px; text-align:center">You'll be sent to your identity provider.</p>
+        {% else %}
+        <div class="alert alert-info">
+          <strong>SSO not configured.</strong>
+          <p>Set <code>ANDVARI_OIDC_ISSUER</code>, <code>ANDVARI_OIDC_CLIENT_ID</code>, <code>ANDVARI_OIDC_CLIENT_SECRET</code>, and <code>ANDVARI_OIDC_REDIRECT_URL</code> to enable browser login (Pocket ID, Authentik, Keycloak, ZITADEL, etc.).</p>
+          <p>Until then, drive Andvari from the CLI:<br><code>andvari login --token &lt;BOOTSTRAP_TOKEN&gt;</code></p>
+        </div>
+        {% endif %}
       </section>
     </main>
   </body>

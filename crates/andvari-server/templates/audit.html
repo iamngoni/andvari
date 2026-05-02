@@ -1,30 +1,34 @@
 {% extends "layout.html" %}
-{% block title %}Audit Log — Andvari{% endblock %}
+{% block title %}Audit log — Andvari{% endblock %}
 {% block content %}
 <section class="page" style="view-transition-name: audit-page">
-  <header class="page-head">
-    <h1>Audit Log</h1>
-    <p class="muted">Live append-only stream. New events appear at the top within ~2s.</p>
+  <header class="page-header">
+    <h1 class="page-title">Audit log</h1>
+    <p class="meta">Live append-only stream. New events appear at the top within ~2s.</p>
   </header>
 
-  <div class="audit-controls" style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-    <span id="audit-status" class="badge badge-ok">streaming</span>
-    <button id="audit-pause" class="button" type="button" style="margin-left:auto">Pause</button>
-    <button id="audit-clear" class="button" type="button">Clear view</button>
+  <div class="audit-controls">
+    <span id="audit-status" class="badge badge-ok">
+      <span class="dot"></span>
+      <span>streaming</span>
+    </span>
+    <div class="spacer"></div>
+    <button id="audit-pause" class="button" type="button">Pause</button>
+    <button id="audit-clear" class="button ghost" type="button">Clear view</button>
   </div>
 
   <table class="audit-table">
     <thead>
       <tr>
-        <th>When</th>
-        <th>Actor</th>
+        <th style="width: 200px">When</th>
+        <th style="width: 140px">Actor</th>
         <th>Action</th>
         <th>Target</th>
-        <th>IP</th>
+        <th style="width: 140px">IP</th>
       </tr>
     </thead>
     <tbody id="audit-tbody">
-      <tr id="audit-empty"><td colspan="5" class="muted">Listening for events…</td></tr>
+      <tr id="audit-empty" class="table-empty"><td colspan="5">Listening for events…</td></tr>
     </tbody>
   </table>
 </section>
@@ -32,6 +36,7 @@
 <script>
 (function () {
   const statusEl = document.getElementById('audit-status');
+  const statusLabel = statusEl.querySelector('span:last-child');
   const pauseBtn = document.getElementById('audit-pause');
   const clearBtn = document.getElementById('audit-clear');
   const tbody = document.getElementById('audit-tbody');
@@ -39,8 +44,19 @@
   let paused = false;
   let es = null;
 
+  function setStatus(state, label) {
+    statusEl.className = 'badge ' + (state === 'ok' ? 'badge-ok' : state === 'warn' ? 'badge-warn' : 'badge-err');
+    statusLabel.textContent = label;
+  }
+
   function fmtTs(ts) {
     try { return new Date(ts).toLocaleString(); } catch (_) { return ts; }
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
   }
 
   function appendRow(row) {
@@ -48,33 +64,33 @@
     if (emptyRow && emptyRow.parentNode) emptyRow.remove();
     const tr = document.createElement('tr');
     tr.style.viewTransitionName = 'audit-row-' + row.id;
-    tr.innerHTML = [
-      '<td>', fmtTs(row.ts), '</td>',
-      '<td><code>', row.actor_kind, '</code></td>',
-      '<td>', row.action, '</td>',
-      '<td>', row.target_kind || '', ' ', row.target_id ? '<code>' + row.target_id.slice(0,8) + '</code>' : '', '</td>',
-      '<td>', row.ip || '', '</td>',
-    ].join('');
+    const tgt = row.target_kind ? escapeHtml(row.target_kind) : '';
+    const tgtId = row.target_id ? '<code>' + escapeHtml(row.target_id.slice(0, 8)) + '</code>' : '';
+    tr.innerHTML =
+      '<td>' + escapeHtml(fmtTs(row.ts)) + '</td>' +
+      '<td><code>' + escapeHtml(row.actor_kind) + '</code></td>' +
+      '<td>' + escapeHtml(row.action) + '</td>' +
+      '<td>' + tgt + (tgt && tgtId ? ' ' : '') + tgtId + '</td>' +
+      '<td>' + escapeHtml(row.ip || '') + '</td>';
     tbody.insertBefore(tr, tbody.firstChild);
     while (tbody.children.length > 200) tbody.removeChild(tbody.lastChild);
   }
 
   function connect() {
-    const ws = (location.pathname.split('/audit')[0]) || '';
     const slug = (document.body.dataset.workspace || (document.querySelector('.tiny-logo')?.textContent || '').toLowerCase());
     const url = '/v1/ws/' + (slug || 'default') + '/audit/stream';
     es = new EventSource(url, { withCredentials: true });
     es.addEventListener('audit', ev => {
       try { appendRow(JSON.parse(ev.data)); } catch (_) {}
     });
-    es.onopen = () => { statusEl.textContent = 'streaming'; statusEl.className = 'badge badge-ok'; };
-    es.onerror = () => { statusEl.textContent = 'reconnecting…'; statusEl.className = 'badge badge-warn'; };
+    es.onopen = () => setStatus('ok', 'streaming');
+    es.onerror = () => setStatus('warn', 'reconnecting…');
   }
 
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
     pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-    statusEl.textContent = paused ? 'paused' : 'streaming';
+    setStatus(paused ? 'warn' : 'ok', paused ? 'paused' : 'streaming');
   });
   clearBtn.addEventListener('click', () => {
     while (tbody.firstChild) tbody.removeChild(tbody.firstChild);

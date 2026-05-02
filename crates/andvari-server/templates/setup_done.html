@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Andvari · Bootstrap token</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/assets/andvari.css">
+  </head>
+  <body>
+    <main class="login-page">
+      <section class="login-panel" style="max-width: 560px; width: min(560px, 100%)">
+        <span class="logo" aria-hidden="true">
+          <svg width="18" height="20" viewBox="0 0 14 16" fill="none"><path d="M7 0.5 12.5 2.4v4.9c0 3.7-2.2 6.5-5.5 8.2-3.3-1.7-5.5-4.5-5.5-8.2V2.4L7 .5Z" fill="currentColor"/></svg>
+        </span>
+        <h1>Workspace ready</h1>
+        <p><strong>{{ workspace_name }}</strong> (<code>{{ workspace_slug }}</code>) is created.</p>
+
+        <p class="token-warning" role="alert">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 auto; margin-top:1px"><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.41 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span>Copy this bootstrap token now. It will not be shown again.</span>
+        </p>
+
+        <div class="token-box">
+          <code id="bootstrap-token">{{ token }}</code>
+          <button class="button" type="button" onclick="navigator.clipboard.writeText(document.getElementById('bootstrap-token').textContent)">Copy</button>
+        </div>
+
+        <p class="section-label" style="margin-top: 24px">Next steps</p>
+        <ol class="setup-steps">
+          <li>Save the token to your secrets manager.</li>
+          <li>Configure the CLI:<br><code>andvari login --token &lt;TOKEN&gt; --workspace {{ workspace_slug }}</code></li>
+          <li>For SSO, set <code>ANDVARI_OIDC_ISSUER</code>, <code>ANDVARI_OIDC_CLIENT_ID</code>, <code>ANDVARI_OIDC_CLIENT_SECRET</code>, <code>ANDVARI_OIDC_REDIRECT_URL</code>, and <code>ANDVARI_OIDC_DEFAULT_WORKSPACE={{ workspace_slug }}</code>, then restart.</li>
+          <li>Sign in via <a href="/login">/login</a>.</li>
+        </ol>
+
+        <a class="button accent block lg" href="/login" style="margin-top: 20px">Continue to sign in</a>
+      </section>
+    </main>
+  </body>
+</html>

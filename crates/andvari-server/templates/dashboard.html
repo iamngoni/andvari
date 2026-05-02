@@ -5,141 +5,81 @@
 {% block content %}
 <section class="page">
   <header class="page-header">
-    <h1 class="page-title">Good morning, Jane 👋</h1>
+    <h1 class="page-title">Welcome back, {{ user_name }}</h1>
     <div class="meta">
-      <span>Workspace:</span><strong>Spirit Finder</strong>
+      <span>Workspace</span>
+      <strong>{{ workspace_name }}</strong>
       <span>·</span>
-      <span>Role:</span><strong>Owner</strong>
+      <code>{{ workspace_slug }}</code>
+      <span>·</span>
+      <span>{{ user_email }}</span>
     </div>
   </header>
 
   <div class="kpi-grid">
     <article class="kpi">
-      <span class="kpi-icon" style="background: var(--green-soft); color: var(--green)">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6.5" y="10" width="11" height="9.5" rx="2"/><path d="M8.5 10V8a3.5 3.5 0 0 1 7 0v2"/><path d="M12 13.5v2"/></svg>
+      <span class="kpi-icon {% if vault_state == "unsealed" %}green{% else %}amber{% endif %}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6.5" y="10" width="11" height="9.5" rx="2"/><path d="M8.5 10V8a3.5 3.5 0 0 1 7 0v2"/><path d="M12 13.5v2"/></svg>
       </span>
-      <div><small>Vault State</small><strong style="color: var(--green)">Unsealed</strong><span class="healthy"><span class="dot"></span>Healthy</span></div>
+      <div>
+        <small>Vault state</small>
+        <strong>{{ vault_state_label }}</strong>
+        <span class="healthy">
+          <span class="dot {% if vault_state != "unsealed" %}amber{% endif %}"></span>
+          {% if vault_state == "unsealed" %}Healthy{% else %}Awaiting unseal{% endif %}
+        </span>
+      </div>
     </article>
     <article class="kpi">
-      <span class="kpi-icon" style="background: #f1f5f9; color: #475569">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="15" r="3.25"/><path d="m10.5 12.5 8.5-8.5"/><path d="m15.5 7.5 2.5 2.5"/></svg>
+      <span class="kpi-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="15" r="3.25"/><path d="m10.5 12.5 8.5-8.5"/><path d="m15.5 7.5 2.5 2.5"/></svg>
       </span>
-      <div><small>Prod Secrets</small><strong>24</strong><span class="healthy">Across 3 projects</span></div>
+      <div>
+        <small>Secret versions</small>
+        <strong>{{ secret_count }}</strong>
+        <span class="healthy"><span class="dot muted"></span>Across all projects</span>
+      </div>
     </article>
     <article class="kpi">
-      <span class="kpi-icon" style="background: var(--green-soft); color: var(--green)">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2 20 5v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="m9 11 2 2 4-4"/></svg>
+      <span class="kpi-icon accent" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2 20 5v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="m9 11 2 2 4-4"/></svg>
       </span>
-      <div><small>Active Tokens</small><strong>16</strong><span class="healthy">14 service · 2 human</span></div>
+      <div>
+        <small>Active tokens</small>
+        <strong>{{ token_count }}</strong>
+        <span class="healthy"><span class="dot muted"></span>Service tokens</span>
+      </div>
     </article>
     <article class="kpi">
-      <span class="kpi-icon" style="background: var(--amber-soft); color: var(--amber)">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-6.5 6.5 4 4L15 11"/><path d="M3 21h12"/></svg>
+      <span class="kpi-icon {% if pending_approvals == 0 %}{% else %}amber{% endif %}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-6.5 6.5 4 4L15 11"/><path d="M3 21h12"/></svg>
       </span>
-      <div><small>Pending Approvals</small><strong>2</strong><span class="healthy">Requires your review</span></div>
+      <div>
+        <small>Pending approvals</small>
+        <strong>{{ pending_approvals }}</strong>
+        <span class="healthy">
+          <span class="dot {% if pending_approvals == 0 %}muted{% else %}amber{% endif %}"></span>
+          {% if pending_approvals == 0 %}Nothing waiting{% else %}Requires review{% endif %}
+        </span>
+      </div>
     </article>
   </div>
 
-  <div class="grid">
-    <div class="dashboard-left">
-    <article class="card secrets-card">
-      <div class="card-header">
-        <div class="meta project-meta" style="margin:0"><span>Project:</span><strong>spirit-finder</strong><span>/</span><span>Environment:</span><strong>prod</strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
-        <a class="button" href="/secrets">View all secrets
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </a>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title">Get started</h2>
+        <p class="card-subtitle">Most of Andvari is driven from the CLI. The web UI surfaces state and history.</p>
       </div>
-      <div class="secrets-content">
-        <div>
-          <h2 class="card-title">24 Secrets</h2>
-          <div class="donut-wrap" style="margin-top: 19px">
-            <div class="donut" aria-hidden="true"></div>
-            <div class="legend">
-              <div class="legend-row"><span class="legend-dot" style="background: var(--green)"></span><span>Current</span><strong>20</strong></div>
-              <div class="legend-row"><span class="legend-dot" style="background: #3b82f6"></span><span>Staging</span><strong>3</strong></div>
-              <div class="legend-row"><span class="legend-dot" style="background: var(--amber)"></span><span>Deprecated</span><strong>1</strong></div>
-            </div>
-          </div>
-        </div>
-        <table class="table">
-          <thead><tr><th>Secret Name</th><th>Latest Version</th><th>Last Updated</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr>
-              <td><div class="secret-cell"><span class="secret-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7.5" cy="14.5" r="3"/><path d="m10 12 7-7"/><path d="m14.5 7.5 2 2"/></svg></span><div><a class="secret-name" href="/secrets/DATABASE_URL">DATABASE_URL</a><div class="subtle">PostgreSQL</div></div></div></td>
-              <td><span class="pill neutral">v12</span></td>
-              <td>Apr 29, 2026 14:22<div class="subtle">by jane@spirit.dev</div></td>
-              <td><span class="pill">Current</span></td><td>⋮</td>
-            </tr>
-            <tr>
-              <td><div class="secret-cell"><span class="secret-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7.5" cy="14.5" r="3"/><path d="m10 12 7-7"/><path d="m14.5 7.5 2 2"/></svg></span><div><a class="secret-name" href="/secrets/STRIPE_API_KEY">STRIPE_API_KEY</a><div class="subtle">Stripe</div></div></div></td>
-              <td><span class="pill neutral">v8</span></td>
-              <td>Apr 28, 2026 09:11<div class="subtle">by svc-deploy</div></td>
-              <td><span class="pill">Current</span></td><td>⋮</td>
-            </tr>
-            <tr>
-              <td><div class="secret-cell"><span class="secret-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7.5" cy="14.5" r="3"/><path d="m10 12 7-7"/><path d="m14.5 7.5 2 2"/></svg></span><div><a class="secret-name" href="/secrets/JWT_SECRET">JWT_SECRET</a><div class="subtle">Auth</div></div></div></td>
-              <td><span class="pill neutral">v5</span></td>
-              <td>Apr 27, 2026 16:40<div class="subtle">by jane@spirit.dev</div></td>
-              <td><span class="pill">Current</span></td><td>⋮</td>
-            </tr>
-            <tr>
-              <td><div class="secret-cell"><span class="secret-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7.5" cy="14.5" r="3"/><path d="m10 12 7-7"/><path d="m14.5 7.5 2 2"/></svg></span><div><a class="secret-name" href="/secrets/SENTRY_DSN">SENTRY_DSN</a><div class="subtle">Sentry</div></div></div></td>
-              <td><span class="pill neutral">v4</span></td>
-              <td>Apr 26, 2026 11:03<div class="subtle">by svc-observ</div></td>
-              <td><span class="pill">Current</span></td><td>⋮</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="card-header" style="justify-content:center; min-height: 46px; border-top:1px solid var(--line-soft); border-bottom:0">
-        <a class="button ghost" href="/secrets">View all 24 secrets</a>
-      </div>
-    </article>
-
-    <article class="card environments">
-      <div class="card-header">
-        <h2 class="card-title">Environments</h2>
-        <a class="button" href="#">Manage environments
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </a>
-      </div>
-      <div class="env-grid">
-        <div class="env-card"><div class="env-top"><span class="env-name"><span class="env-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8"/><path d="M8 18h8"/><path d="M8 6h4a4 4 0 0 1 4 4v6"/></svg></span><strong>dev</strong></span><span class="pill">Healthy</span></div><div class="env-stats"><div><small>Secrets</small><strong>28</strong></div><div><small>Updated</small><strong>2m ago</strong></div><div><small>Last updated by</small><strong>jane@spirit.dev</strong></div></div></div>
-        <div class="env-card"><div class="env-top"><span class="env-name"><span class="env-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8"/><path d="M8 18h8"/><path d="M8 6h4a4 4 0 0 1 4 4v6"/></svg></span><strong>staging</strong></span><span class="pill">Healthy</span></div><div class="env-stats"><div><small>Secrets</small><strong>24</strong></div><div><small>Updated</small><strong>12m ago</strong></div><div><small>Last updated by</small><strong>svc-deploy</strong></div></div></div>
-        <div class="env-card"><div class="env-top"><span class="env-name"><span class="env-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8"/><path d="M8 18h8"/><path d="M8 6h4a4 4 0 0 1 4 4v6"/></svg></span><strong>prod</strong></span><span class="pill">Healthy</span></div><div class="env-stats"><div><small>Secrets</small><strong>24</strong></div><div><small>Updated</small><strong>2h ago</strong></div><div><small>Last updated by</small><strong>jane@spirit.dev</strong></div></div></div>
-      </div>
-      <div class="card-header env-footer">
-        <a class="button ghost" href="#">View all environments</a>
-      </div>
-    </article>
     </div>
-
-    <article class="card">
-      <div class="card-header">
-        <h2 class="card-title">Recent Audit Events</h2>
-        <a class="button" href="#">View all
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-        </a>
-      </div>
-      <div class="events">
-        <div class="event event-green"><span class="event-icon" style="background:var(--green-soft); color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v12"/><path d="m7 12 5 5 5-5"/></svg></span><span class="event-dot"></span><div class="event-main"><strong>Secret read</strong><span>DATABASE_URL (prod)</span><small>svc-api-gateway</small></div><span class="event-time">2m ago</span><span class="event-arrow">›</span></div>
-        <div class="event event-blue"><span class="event-icon" style="background:var(--blue-soft); color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m16 4 4 4L8 20H4v-4z"/></svg></span><span class="event-dot"></span><div class="event-main"><strong>Secret updated</strong><span>STRIPE_API_KEY (prod) v8</span><small>jane@spirit.dev</small></div><span class="event-time">15m ago</span><span class="event-arrow">›</span></div>
-        <div class="event event-slate"><span class="event-icon" style="background:#f1f5f9; color:#475569"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="15" r="3"/><path d="m10.5 12.5 7.5-7.5"/><path d="m15 8 2 2"/></svg></span><span class="event-dot"></span><div class="event-main"><strong>Token created</strong><span>svc-deploy (read: prod)</span><small>jane@spirit.dev</small></div><span class="event-time">1h ago</span><span class="event-arrow">›</span></div>
-        <div class="event event-amber"><span class="event-icon" style="background:var(--amber-soft); color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-6.5 6.5 4 4L15 11"/><path d="M3 21h12"/></svg></span><span class="event-dot"></span><div class="event-main"><strong>Approval requested</strong><span>Rotate DATABASE_URL (prod)</span><small>jane@spirit.dev</small></div><span class="event-time">2h ago</span><span class="event-arrow">›</span></div>
-        <div class="event event-green"><span class="event-icon" style="background:var(--green-soft); color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2 20 5v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z"/><path d="m9 11 2 2 4-4"/></svg></span><span class="event-dot"></span><div class="event-main"><strong>Vault unsealed</strong><span>Threshold 3 of 5</span><small>system</small></div><span class="event-arrow">›</span></div>
-      </div>
-    </article>
-  </div>
+    <div class="card-body">
+      <ol class="setup-steps">
+        <li>Use the bootstrap token from setup to authenticate the CLI:<br><code>andvari login --token &lt;TOKEN&gt; --workspace {{ workspace_slug }}</code></li>
+        <li>Create a project and environment, then write your first secret:<br><code>andvari set DATABASE_URL --project app --env prod</code></li>
+        <li>Optionally enable SSO by setting <code>ANDVARI_OIDC_*</code> environment variables and restarting the server.</li>
+        <li>Browse <a href="/secrets">secrets</a>, <a href="/tokens">tokens</a>, and the <a href="/audit">audit log</a> from the sidebar.</li>
+      </ol>
+    </div>
+  </article>
 </section>
-
-<aside class="assistant" aria-label="Andvari Assistant">
-  <div class="assistant-head"><span class="logo" style="width:28px;height:28px"><svg width="14" height="16" viewBox="0 0 14 16" fill="none"><path d="M7 0.5 12.5 2.4v4.9c0 3.7-2.2 6.5-5.5 8.2-3.3-1.7-5.5-4.5-5.5-8.2V2.4L7 .5Z" fill="currentColor"/></svg></span>Andvari Assistant<span class="assistant-close">×</span></div>
-  <div class="assistant-body">
-    <p>Detected a production secret rotation request.</p>
-    <div class="check-row"><span class="check-icon" style="background:var(--green-soft); color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 12 4 4 8-8"/></svg></span><div><strong>Verified audit trail impact</strong><span>2 services will receive new value</span></div></div>
-    <div class="check-row"><span class="check-icon" style="background:var(--green-soft); color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 12 4 4 8-8"/></svg></span><div><strong>Checked tokens and leases</strong><span>No active leases depend on this secret</span></div></div>
-    <div class="check-row"><span class="check-icon" style="background:var(--amber-soft); color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v5"/><path d="M12 17h.01"/></svg></span><div><strong>Approval required</strong><span>2 of 2 approvers needed</span></div></div>
-    <div class="assistant-actions"><a class="button" href="/approvals">View request</a><a class="button primary" href="/approvals"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 12 4 4 8-8"/></svg>Approve</a></div>
-  </div>
-</aside>
 {% endblock %}
